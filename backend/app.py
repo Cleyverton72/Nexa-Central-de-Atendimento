@@ -49,9 +49,16 @@ def prepare_database():
                 conversation_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 priority TEXT NOT NULL,
+                assignee TEXT NOT NULL DEFAULT 'Fila geral',
+                status TEXT NOT NULL DEFAULT 'aberto',
                 created_at TEXT NOT NULL
             );
         """)
+        ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
+        if "assignee" not in ticket_columns:
+            database.execute("ALTER TABLE tickets ADD COLUMN assignee TEXT NOT NULL DEFAULT 'Fila geral'")
+        if "status" not in ticket_columns:
+            database.execute("ALTER TABLE tickets ADD COLUMN status TEXT NOT NULL DEFAULT 'aberto'")
         count = database.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
         if count == 0:
             messages = json.dumps([
@@ -120,15 +127,41 @@ def transfer(conversation_id):
     return {"message": "Conversa transferida para a fila humana."}
 
 
+@app.get("/api/tickets")
+def list_tickets():
+    with database_connection() as database:
+        rows = database.execute("""
+            SELECT tickets.*, COALESCE(conversations.name, 'Cliente') AS customer
+            FROM tickets
+            LEFT JOIN conversations ON conversations.id = tickets.conversation_id
+            ORDER BY tickets.id DESC
+        """).fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
 @app.post("/api/tickets")
 def create_ticket():
-    data = request.json
+    data = request.json or {}
+    if not data.get("title", "").strip():
+        return {"error": "O título é obrigatório."}, 400
     with database_connection() as database:
         cursor = database.execute(
-            "INSERT INTO tickets (conversation_id, title, priority, created_at) VALUES (?, ?, ?, ?)",
-            (data["conversation_id"], data["title"], data.get("priority", "Média"), datetime.now().isoformat()),
+            "INSERT INTO tickets (conversation_id, title, priority, assignee, status, created_at) VALUES (?, ?, ?, ?, 'aberto', ?)",
+            (data["conversation_id"], data["title"].strip(), data.get("priority", "Média"), data.get("assignee", "Fila geral"), datetime.now().isoformat()),
         )
     return {"id": cursor.lastrowid, "message": "Ticket criado."}, 201
+
+
+@app.patch("/api/tickets/<int:ticket_id>")
+def update_ticket(ticket_id):
+    status = (request.json or {}).get("status")
+    if status not in ("aberto", "resolvido"):
+        return {"error": "Status inválido."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE tickets SET status = ? WHERE id = ?", (status, ticket_id))
+        if cursor.rowcount == 0:
+            return {"error": "Ticket não encontrado."}, 404
+    return {"id": ticket_id, "status": status}
 
 
 @app.post("/api/incoming")

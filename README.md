@@ -9,6 +9,8 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - leitura e envio de mensagens;
 - sugestão de resposta da IA;
 - criação de tickets;
+- painel de tickets com busca, filtros e prioridades;
+- mudança de ticket aberto para resolvido;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;
 - classificação automática de casos delicados;
