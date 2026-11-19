@@ -1,0 +1,40 @@
+# Nexa — Central de Atendimento
+
+Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
+
+## O que já funciona
+
+- painel responsivo com indicadores;
+- busca e filtro por canal;
+- leitura e envio de mensagens;
+- sugestão de resposta da IA;
+- criação de tickets;
+- transferência para a fila humana;
+- API Python com banco SQLite para uso local.
+
+## Rodar o painel React
+
+```bash
+npm install
+npm run dev
+```
+
+Abra o endereço mostrado pelo Vite no navegador.
+
+## Rodar a API Python
+
+Em outro terminal:
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+A API ficará em `http://127.0.0.1:5000`.
+
+## Próxima etapa para produção
+
+Trocar os dados de demonstração pelas APIs oficiais dos canais e conectar um provedor de IA. As credenciais devem ficar no servidor e nunca no código do navegador.
