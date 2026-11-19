@@ -10,6 +10,8 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - sugestão de resposta da IA;
 - criação de tickets;
 - transferência para a fila humana;
+- simulação de novas mensagens recebidas;
+- classificação automática de casos delicados;
 - API Python com banco SQLite para uso local.
 
 ## Rodar o painel React

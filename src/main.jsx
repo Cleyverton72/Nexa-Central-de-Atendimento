@@ -68,6 +68,20 @@ const statusLabel = {
   humano: ["Com atendente", "blue"], resolvido: ["Resolvido", "green"]
 };
 
+function classifyIncoming(text) {
+  const message = text.toLowerCase();
+  if (["cobrança", "cartão", "fraude", "estorno", "defeito"].some(word => message.includes(word))) {
+    return { status: "urgente", mood: "Preocupado", topic: "Caso delicado", reply: "Entendi. Para cuidar deste caso com atenção, já encaminhei a conversa para uma pessoa do nosso time." };
+  }
+  if (["pedido", "entrega", "rastrear"].some(word => message.includes(word))) {
+    return { status: "ia", mood: "Neutro", topic: "Entrega", reply: "Encontrei sua solicitação. Vou consultar o andamento do pedido e mostrar a atualização por aqui." };
+  }
+  if (["plano", "assinatura", "mensalidade"].some(word => message.includes(word))) {
+    return { status: "ia", mood: "Neutro", topic: "Plano", reply: "Posso ajudar com seu plano. A alteração pode ser feita na área de configurações da conta." };
+  }
+  return { status: "ia", mood: "Neutro", topic: "Dúvida geral", reply: "Recebi sua mensagem. Vou buscar a informação correta para ajudar você." };
+}
+
 function ChannelBadge({ channel, compact = false }) {
   const meta = channelMeta[channel];
   const Icon = meta.icon;
@@ -98,10 +112,10 @@ function StatCard({ icon: Icon, label, value, detail, tone }) {
   return <article className="stat-card"><span className={`stat-icon ${tone}`}><Icon size={21} /></span><div><p>{label}</p><strong>{value}</strong><small>{detail}</small></div></article>;
 }
 
-function ConversationList({ conversations, selectedId, onSelect, filter, setFilter, search, setSearch }) {
+function ConversationList({ conversations, selectedId, onSelect, filter, setFilter, search, setSearch, onNew }) {
   const channels = ["todos", "whatsapp", "email", "telegram"];
   return <section className="conversation-list">
-    <div className="list-heading"><div><h2>Conversas</h2><span>{conversations.length} em andamento</span></div><button aria-label="Nova conversa"><Plus size={20} /></button></div>
+    <div className="list-heading"><div><h2>Conversas</h2><span>{conversations.length} em andamento</span></div><button aria-label="Nova conversa" onClick={onNew}><Plus size={20} /></button></div>
     <label className="search-box"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar conversa..." /></label>
     <div className="channel-tabs">
       {channels.map(ch => <button key={ch} className={filter === ch ? "active" : ""} onClick={() => setFilter(ch)}>{ch === "todos" ? "Todos" : channelMeta[ch].label}</button>)}
@@ -153,12 +167,21 @@ function TicketModal({ conversation, onClose, onCreate }) {
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" onMouseDown={e => e.stopPropagation()}><div className="modal-title"><span><TicketCheck size={20} /></span><div><h2>Novo ticket</h2><p>Registre o caso para acompanhar até a solução.</p></div><button onClick={onClose} aria-label="Fechar"><X /></button></div><label>Título<input value={title} onChange={e => setTitle(e.target.value)} /></label><label>Prioridade<select value={priority} onChange={e => setPriority(e.target.value)}><option>Baixa</option><option>Média</option><option>Alta</option><option>Urgente</option></select></label><label>Responsável<select><option>Fila geral</option><option>Time financeiro</option><option>Time de entregas</option><option>Time de trocas</option></select></label><div className="modal-actions"><button onClick={onClose}>Cancelar</button><button className="primary" disabled={!title.trim()} onClick={() => onCreate({ title, priority })}>Criar ticket</button></div></div></div>;
 }
 
+function IncomingModal({ onClose, onCreate }) {
+  const [name, setName] = useState("");
+  const [channel, setChannel] = useState("whatsapp");
+  const [message, setMessage] = useState("");
+  const analysis = message.trim() ? classifyIncoming(message) : null;
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" onMouseDown={e => e.stopPropagation()}><div className="modal-title"><span><MessageCircle size={20} /></span><div><h2>Simular mensagem recebida</h2><p>Veja como a central classifica e encaminha um novo contato.</p></div><button onClick={onClose} aria-label="Fechar"><X /></button></div><label>Nome do cliente<input value={name} onChange={e => setName(e.target.value)} placeholder="Ex.: Lucas Mendes" /></label><label>Canal<select value={channel} onChange={e => setChannel(e.target.value)}><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="telegram">Telegram</option></select></label><label>Mensagem<textarea className="modal-textarea" value={message} onChange={e => setMessage(e.target.value)} placeholder="Ex.: Não reconheço uma cobrança no cartão." /></label>{analysis && <div className={`routing-result ${analysis.status === "urgente" ? "human" : "auto"}`}><Bot size={17} /><div><b>{analysis.status === "urgente" ? "Encaminhar para uma pessoa" : "A IA pode responder"}</b><span>Assunto identificado: {analysis.topic}</span></div></div>}<div className="modal-actions"><button onClick={onClose}>Cancelar</button><button className="primary" disabled={!name.trim() || !message.trim()} onClick={() => onCreate({ name: name.trim(), channel, message: message.trim() })}>Receber mensagem</button></div></div></div>;
+}
+
 function App() {
   const [conversations, setConversations] = useState(seedConversations);
   const [selectedId, setSelectedId] = useState(1);
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [incomingOpen, setIncomingOpen] = useState(false);
   const [transferred, setTransferred] = useState([]);
   const [toast, setToast] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -178,6 +201,26 @@ function App() {
   const sendMessage = text => setConversations(items => items.map(c => c.id === selectedId ? { ...c, preview: text, time: "Agora", messages: [...c.messages, { from: "human", text, time: time() }] } : c));
   const transfer = () => { setTransferred(ids => [...ids, selectedId]); setConversations(items => items.map(c => c.id === selectedId ? { ...c, status: "humano" } : c)); setToast("Conversa enviada para a fila humana."); };
   const createTicket = ticket => { setTicketOpen(false); setToast(`Ticket “${ticket.title}” criado com prioridade ${ticket.priority.toLowerCase()}.`); };
+  const receiveIncoming = async draft => {
+    const fallback = () => {
+      const result = classifyIncoming(draft.message);
+      const id = Math.max(...conversations.map(item => item.id), 0) + 1;
+      return { id, name: draft.name, initials: draft.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase(), channel: draft.channel, time: "Agora", preview: draft.message, unread: 1, status: result.status, mood: result.mood, email: "novo.cliente@email.com", phone: "+55 11 90000-0000", orders: 0, messages: [{ from: "customer", text: draft.message, time: time() }, { from: "ai", text: result.reply, time: time() }] };
+    };
+    let incoming;
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/api/incoming", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
+        if (!response.ok) throw new Error("API unavailable");
+        incoming = await response.json();
+      } catch { incoming = fallback(); }
+    } else { incoming = fallback(); }
+    setConversations(items => [incoming, ...items]);
+    setSelectedId(incoming.id);
+    setIncomingOpen(false);
+    setMobileChat(true);
+    setToast(incoming.status === "urgente" ? "Caso delicado enviado para a fila humana." : "A IA classificou e respondeu à nova mensagem.");
+  };
 
   return <div className="app-shell">
     <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -185,9 +228,10 @@ function App() {
     <main className="main">
       <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Abrir menu"><Menu /></button><div><h1>Central de atendimento</h1><p>Acompanhe e gerencie todos os canais em um só lugar.</p></div><div className="top-actions"><button className="availability"><i />Disponível<ChevronDown size={15} /></button><button className="icon-button" aria-label="Notificações"><Bell size={20} /><i /></button><span className="top-avatar">AS</span></div></header>
       <section className="stats-grid"><StatCard icon={MessageCircle} label="Atendimentos hoje" value="148" detail="↑ 12% vs. ontem" tone="purple" /><StatCard icon={Bot} label="Resolvidos pela IA" value="87%" detail="129 conversas" tone="teal" /><StatCard icon={UsersRound} label="Na fila humana" value="12" detail="3 aguardando há +5 min" tone="orange" /><StatCard icon={Clock3} label="Tempo médio" value="2m 14s" detail="↓ 18s esta semana" tone="blue" /></section>
-      <section className={`inbox-layout ${mobileChat ? "mobile-chat" : ""}`}><ConversationList conversations={visible} selectedId={selectedId} onSelect={id => { setSelectedId(id); setMobileChat(true); }} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} /><Chat conversation={selected} onSend={sendMessage} onTransfer={transfer} onTicket={() => setTicketOpen(true)} transferred={transferred.includes(selectedId)} onBack={() => setMobileChat(false)} /><CustomerPanel conversation={selected} /></section>
+      <section className={`inbox-layout ${mobileChat ? "mobile-chat" : ""}`}><ConversationList conversations={visible} selectedId={selectedId} onSelect={id => { setSelectedId(id); setMobileChat(true); }} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} onNew={() => setIncomingOpen(true)} /><Chat conversation={selected} onSend={sendMessage} onTransfer={transfer} onTicket={() => setTicketOpen(true)} transferred={transferred.includes(selectedId)} onBack={() => setMobileChat(false)} /><CustomerPanel conversation={selected} /></section>
     </main>
     {ticketOpen && <TicketModal conversation={selected} onClose={() => setTicketOpen(false)} onCreate={createTicket} />}
+    {incomingOpen && <IncomingModal onClose={() => setIncomingOpen(false)} onCreate={receiveIncoming} />}
     {toast && <div className="toast"><Check size={18} />{toast}</div>}
   </div>;
 }
