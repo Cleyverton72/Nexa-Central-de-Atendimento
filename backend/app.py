@@ -119,6 +119,23 @@ def update_settings():
     return preferences
 
 
+@app.get("/api/dashboard")
+def dashboard_summary():
+    with database_connection() as database:
+        conversations = database.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        automated = database.execute("SELECT COUNT(*) FROM conversations WHERE status IN ('ia', 'resolvido')").fetchone()[0]
+        human_queue = database.execute("SELECT COUNT(*) FROM conversations WHERE status IN ('urgente', 'humano')").fetchone()[0]
+        open_tickets = database.execute("SELECT COUNT(*) FROM tickets WHERE status = 'aberto'").fetchone()[0]
+        channel_rows = database.execute("SELECT channel, COUNT(*) AS total FROM conversations GROUP BY channel").fetchall()
+    return {
+        "conversations": conversations,
+        "automation_rate": round((automated / conversations) * 100) if conversations else 0,
+        "human_queue": human_queue,
+        "open_tickets": open_tickets,
+        "channels": {row["channel"]: row["total"] for row in channel_rows},
+    }
+
+
 @app.get("/api/reports/summary")
 def reports_summary():
     with database_connection() as database:

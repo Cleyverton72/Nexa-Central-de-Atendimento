@@ -5,6 +5,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 ## O que já funciona
 
 - painel responsivo com indicadores;
+- visão geral com fila humana, canais e atividades recentes;
 - busca e filtro por canal;
 - leitura e envio de mensagens;
 - sugestão de resposta da IA;
