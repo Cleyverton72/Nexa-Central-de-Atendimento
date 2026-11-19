@@ -91,6 +91,21 @@ def health():
     return {"status": "ok", "service": "nexa-api"}
 
 
+@app.get("/api/reports/summary")
+def reports_summary():
+    with database_connection() as database:
+        total = database.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        automated = database.execute("SELECT COUNT(*) FROM conversations WHERE status IN ('ia', 'resolvido')").fetchone()[0]
+        open_tickets = database.execute("SELECT COUNT(*) FROM tickets WHERE status = 'aberto'").fetchone()[0]
+        channel_rows = database.execute("SELECT channel, COUNT(*) AS total FROM conversations GROUP BY channel").fetchall()
+    return {
+        "total_conversations": total,
+        "automation_rate": round((automated / total) * 100) if total else 0,
+        "open_tickets": open_tickets,
+        "channels": {row["channel"]: row["total"] for row in channel_rows},
+    }
+
+
 @app.get("/api/conversations")
 def list_conversations():
     with database_connection() as database:
