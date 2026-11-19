@@ -53,6 +53,10 @@ def prepare_database():
                 status TEXT NOT NULL DEFAULT 'aberto',
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -69,6 +73,10 @@ def prepare_database():
                 "INSERT INTO conversations (name, channel, preview, status, messages) VALUES (?, ?, ?, ?, ?)",
                 ("Marina Costa", "whatsapp", "Quero acompanhar meu pedido #4821", "ia", messages),
             )
+        database.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('preferences', ?)",
+            (json.dumps({"whatsapp": True, "email": True, "telegram": False, "autoReply": True, "humanTransfer": True, "tone": "Acolhedor", "confidence": 75, "start": "08:00", "end": "18:00", "days": ["Seg", "Ter", "Qua", "Qui", "Sex"]}),),
+        )
 
 
 def classify_message(text):
@@ -89,6 +97,26 @@ def classify_message(text):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "nexa-api"}
+
+
+@app.get("/api/settings")
+def get_settings():
+    with database_connection() as database:
+        row = database.execute("SELECT value FROM settings WHERE key = 'preferences'").fetchone()
+    return json.loads(row["value"]) if row else {}
+
+
+@app.put("/api/settings")
+def update_settings():
+    data = request.json or {}
+    allowed = {"whatsapp", "email", "telegram", "autoReply", "humanTransfer", "tone", "confidence", "start", "end", "days"}
+    preferences = {key: value for key, value in data.items() if key in allowed}
+    with database_connection() as database:
+        database.execute(
+            "INSERT INTO settings (key, value) VALUES ('preferences', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (json.dumps(preferences),),
+        )
+    return preferences
 
 
 @app.get("/api/reports/summary")

@@ -13,6 +13,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - mudança de ticket aberto para resolvido;
 - cadastro de clientes com busca, segmentos e histórico;
 - relatórios de volume, canais, automação e satisfação;
+- configurações de canais, IA e horário de atendimento;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;
 - classificação automática de casos delicados;
