@@ -11,6 +11,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - criação de tickets;
 - painel de tickets com busca, filtros e prioridades;
 - mudança de ticket aberto para resolvido;
+- cadastro de clientes com busca, segmentos e histórico;
 - relatórios de volume, canais, automação e satisfação;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;

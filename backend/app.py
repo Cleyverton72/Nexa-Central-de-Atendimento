@@ -106,6 +106,30 @@ def reports_summary():
     }
 
 
+@app.get("/api/customers")
+def list_customers():
+    with database_connection() as database:
+        rows = database.execute("""
+            SELECT conversations.id, conversations.name, conversations.channel,
+                   conversations.status, COUNT(tickets.id) AS tickets
+            FROM conversations
+            LEFT JOIN tickets ON tickets.conversation_id = conversations.id
+            GROUP BY conversations.id
+            ORDER BY conversations.name
+        """).fetchall()
+    customers = []
+    for index, row in enumerate(rows):
+        item = dict(row)
+        item.update({
+            "email": f"cliente{item['id']}@email.com",
+            "phone": "+55 11 90000-0000",
+            "orders": (index % 5) + 1,
+            "segment": "Fiel" if index % 5 >= 3 else "Recorrente" if index % 5 >= 1 else "Novo",
+        })
+        customers.append(item)
+    return jsonify(customers)
+
+
 @app.get("/api/conversations")
 def list_conversations():
     with database_connection() as database:
