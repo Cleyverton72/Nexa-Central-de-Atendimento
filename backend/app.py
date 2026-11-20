@@ -66,6 +66,17 @@ def prepare_database():
                 uses INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS team_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                role TEXT NOT NULL,
+                team TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'offline',
+                active_conversations INTEGER NOT NULL DEFAULT 0,
+                resolved_today INTEGER NOT NULL DEFAULT 0,
+                satisfaction TEXT NOT NULL DEFAULT '—'
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -94,6 +105,17 @@ def prepare_database():
                     ("Como acompanhar um pedido", "Entregas", "Orienta o cliente a consultar o código de rastreio e o prazo previsto.", 84, datetime.now().isoformat()),
                     ("Troca de produto com defeito", "Trocas", "Explica os prazos, documentos e etapas para solicitar uma troca.", 57, datetime.now().isoformat()),
                     ("Cobrança não reconhecida", "Financeiro", "Informa os cuidados de segurança e transfere o caso para o time financeiro.", 39, datetime.now().isoformat()),
+                ],
+            )
+        member_count = database.execute("SELECT COUNT(*) FROM team_members").fetchone()[0]
+        if member_count == 0:
+            database.executemany(
+                "INSERT INTO team_members (name, email, role, team, status, active_conversations, resolved_today, satisfaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("Ana Silva", "ana@acmestore.com", "Administradora", "Geral", "online", 4, 38, "4,9"),
+                    ("Marcos Santos", "marcos@acmestore.com", "Atendente", "Financeiro", "ocupado", 6, 31, "4,8"),
+                    ("Júlia Mendes", "julia@acmestore.com", "Atendente", "Entregas", "online", 3, 42, "4,9"),
+                    ("Pedro Rocha", "pedro@acmestore.com", "Supervisor", "Trocas", "offline", 0, 27, "4,7"),
                 ],
             )
 
@@ -187,6 +209,48 @@ def update_knowledge_article(article_id):
         if cursor.rowcount == 0:
             return {"error": "Artigo não encontrado."}, 404
     return {"id": article_id, "active": active}
+
+
+@app.get("/api/team")
+def list_team_members():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM team_members ORDER BY name").fetchall()
+    members = []
+    for row in rows:
+        member = dict(row)
+        member["initials"] = "".join(part[0] for part in member["name"].split()[:2]).upper()
+        members.append(member)
+    return jsonify(members)
+
+
+@app.post("/api/team")
+def create_team_member():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip().lower()
+    if not name or not email:
+        return {"error": "Nome e e-mail são obrigatórios."}, 400
+    try:
+        with database_connection() as database:
+            cursor = database.execute(
+                "INSERT INTO team_members (name, email, role, team) VALUES (?, ?, ?, ?)",
+                (name, email, data.get("role", "Atendente"), data.get("team", "Geral")),
+            )
+    except sqlite3.IntegrityError:
+        return {"error": "Este e-mail já pertence a uma pessoa da equipe."}, 409
+    return {"id": cursor.lastrowid, "name": name, "email": email, "status": "offline"}, 201
+
+
+@app.patch("/api/team/<int:member_id>")
+def update_team_member(member_id):
+    status = (request.json or {}).get("status")
+    if status not in ("online", "ocupado", "offline"):
+        return {"error": "Disponibilidade inválida."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE team_members SET status = ? WHERE id = ?", (status, member_id))
+        if cursor.rowcount == 0:
+            return {"error": "Pessoa não encontrada."}, 404
+    return {"id": member_id, "status": status}
 
 
 @app.get("/api/reports/summary")
