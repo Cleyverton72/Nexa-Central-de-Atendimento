@@ -106,6 +106,18 @@ def prepare_database():
                 date_text TEXT NOT NULL,
                 time_text TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS support_queues (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                team TEXT NOT NULL,
+                waiting INTEGER NOT NULL DEFAULT 0,
+                agents INTEGER NOT NULL DEFAULT 0,
+                sla_minutes INTEGER NOT NULL DEFAULT 5,
+                oldest_minutes INTEGER NOT NULL DEFAULT 0,
+                within_percent INTEGER NOT NULL DEFAULT 100,
+                handled_today INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'healthy'
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -178,6 +190,17 @@ def prepare_database():
                     ("Resposta automática enviada", "A IA informou a previsão de entrega do pedido #4821.", "Nexa IA", "ia", "success", "Hoje", "10:42"),
                     ("Disponibilidade atualizada", "Pedro Rocha alterou sua situação para disponível.", "Pedro Rocha", "humano", "info", "Hoje", "09:54"),
                     ("Integração sincronizada", "A caixa de e-mail foi sincronizada sem erros.", "Sistema", "sistema", "success", "Hoje", "09:31"),
+                ],
+            )
+        queue_count = database.execute("SELECT COUNT(*) FROM support_queues").fetchone()[0]
+        if queue_count == 0:
+            database.executemany(
+                "INSERT INTO support_queues (id, name, team, waiting, agents, sla_minutes, oldest_minutes, within_percent, handled_today, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, "Fila geral", "Atendimento", 4, 3, 5, 7, 78, 64, "attention"),
+                    (2, "Financeiro", "Cobranças e pagamentos", 3, 2, 4, 9, 62, 28, "critical"),
+                    (3, "Entregas", "Pedidos e rastreio", 2, 2, 8, 3, 93, 47, "healthy"),
+                    (4, "Trocas", "Devoluções e defeitos", 3, 1, 10, 12, 74, 31, "attention"),
                 ],
             )
 
@@ -420,6 +443,43 @@ def list_audit_events():
     with database_connection() as database:
         rows = database.execute(f"SELECT * FROM audit_events {where} ORDER BY id DESC", values).fetchall()
     return jsonify([dict(row) for row in rows])
+
+
+@app.get("/api/queues")
+def list_support_queues():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM support_queues ORDER BY id").fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
+@app.patch("/api/queues/<int:queue_id>")
+def update_support_queue(queue_id):
+    data = request.json or {}
+    with database_connection() as database:
+        row = database.execute("SELECT * FROM support_queues WHERE id = ?", (queue_id,)).fetchone()
+        if row is None:
+            return {"error": "Fila não encontrada."}, 404
+        waiting = row["waiting"]
+        oldest = row["oldest_minutes"]
+        sla = row["sla_minutes"]
+        if data.get("redistribute") is True:
+            waiting = max(waiting - 1, 0)
+            oldest = max(oldest - 2, 0)
+        if "sla" in data:
+            try:
+                sla = int(data["sla"])
+            except (TypeError, ValueError):
+                return {"error": "O prazo precisa ser um número inteiro."}, 400
+            if sla < 1 or sla > 60:
+                return {"error": "O prazo precisa ficar entre 1 e 60 minutos."}, 400
+        ratio = oldest / sla
+        status = "healthy" if ratio <= 1 else "attention" if ratio <= 2 else "critical"
+        database.execute(
+            "UPDATE support_queues SET waiting = ?, oldest_minutes = ?, sla_minutes = ?, status = ? WHERE id = ?",
+            (waiting, oldest, sla, status, queue_id),
+        )
+        updated = database.execute("SELECT * FROM support_queues WHERE id = ?", (queue_id,)).fetchone()
+    return jsonify(dict(updated))
 
 
 @app.get("/api/reports/summary")

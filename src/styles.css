@@ -129,6 +129,59 @@ nav button.active svg { color: #a991ff; }
 .customers-empty { min-height: 230px; display: grid; place-items: center; align-content: center; gap: 8px; color: #98a2b3; }
 .customers-empty b { color: #475467; }
 .customers-empty span { font-size: .8rem; }
+.queues-page { padding: 20px 28px 28px; }
+.queues-hero { min-height: 92px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #3d253b, #80504f); }
+.queues-hero > div { display: flex; align-items: center; gap: 13px; }
+.queues-hero > div > span { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 11px; color: #fff2e9; background: rgba(255,255,255,.13); }
+.queues-hero h2 { margin: 0; font: 700 1.15rem 'Manrope'; }
+.queues-hero p { margin: 5px 0 0; color: #f2ded9; font-size: .875rem; }
+.queue-live { display: flex; align-items: center; gap: 7px; margin-left: auto; padding: 7px 10px; border-radius: 18px; color: #fff7f1; background: rgba(255,255,255,.12); font-size: .78rem; font-weight: 700; }
+.queue-live i { width: 8px; height: 8px; border-radius: 50%; background: #71e0ad; box-shadow: 0 0 0 4px rgba(113,224,173,.14); }
+.queue-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 15px; }
+.queues-panel { overflow: hidden; background: white; border: 1px solid #e1e6ed; border-radius: 13px; }
+.queues-panel > header { padding: 18px 20px; border-bottom: 1px solid #e8ebf0; }
+.queues-panel h3 { margin: 0; font: 700 1rem 'Manrope'; }
+.queues-panel header p { margin: 4px 0 0; color: #7a8597; font-size: .875rem; }
+.queues-toolbar { display: flex; gap: 10px; padding: 13px 20px; border-bottom: 1px solid #edf0f4; }
+.queues-toolbar label { width: min(420px, 100%); height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid #dfe4ea; border-radius: 8px; color: #98a2b3; }
+.queues-toolbar input { width: 100%; border: 0; outline: 0; color: #344054; }
+.queues-toolbar select { min-width: 215px; height: 40px; margin-left: auto; padding: 0 34px 0 11px; border: 1px solid #dfe4ea; border-radius: 8px; background: white; color: #475467; }
+.queue-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 18px; background: #fafbfc; }
+.queue-card { position: relative; overflow: hidden; padding: 17px; border: 1px solid #e2e6ec; border-radius: 12px; background: white; box-shadow: 0 2px 8px rgba(16,24,40,.03); }
+.queue-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #56ad88; }
+.queue-card.attention::before { background: #e7a13e; }
+.queue-card.critical::before { background: #dc6267; }
+.queue-card-top { display: flex; align-items: center; gap: 10px; }
+.queue-card-icon { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 10px; color: #6e50d3; background: #eee9ff; }
+.queue-card-top > div { min-width: 0; }
+.queue-card h4 { margin: 0; color: #1d2939; font: 700 .95rem 'Manrope'; }
+.queue-card-top p { margin: 3px 0 0; color: #8b95a5; font-size: .75rem; }
+.queue-health { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 5px 8px; border-radius: 13px; font-size: .7rem; font-weight: 700; }
+.queue-health i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.queue-health.healthy { color: #21855a; background: #e2f6ec; }
+.queue-health.attention { color: #b86622; background: #fff0e3; }
+.queue-health.critical { color: #c64148; background: #fde9ea; }
+.queue-numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 17px 0; }
+.queue-numbers span { padding: 10px; border-radius: 8px; background: #f8f9fb; }
+.queue-numbers small, .queue-numbers b { display: block; }
+.queue-numbers small { color: #7a8597; font-size: .68rem; }
+.queue-numbers b { margin-top: 3px; color: #273444; font: 700 1.15rem 'Manrope'; }
+.queue-sla > span { display: flex; justify-content: space-between; color: #667085; font-size: .75rem; }
+.queue-sla span b { color: #344054; }
+.queue-sla > i { height: 7px; display: block; margin: 8px 0 6px; overflow: hidden; border-radius: 5px; background: #edf0f3; }
+.queue-sla em { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #5ab88f, #7ac9a6); }
+.queue-card.attention .queue-sla em { background: linear-gradient(90deg, #eba342, #efbd68); }
+.queue-card.critical .queue-sla em { background: linear-gradient(90deg, #df666b, #ef8c8f); }
+.queue-sla > small { color: #8b95a5; font-size: .7rem; }
+.queue-card footer { display: flex; gap: 8px; margin-top: 16px; padding-top: 13px; border-top: 1px solid #edf0f4; }
+.queue-card footer button { height: 35px; border-radius: 7px; padding: 0 11px; font-size: .76rem; font-weight: 700; }
+.queue-redistribute { border: 0; color: white; background: #7658df; }
+.queue-redistribute:disabled { cursor: default; opacity: .45; }
+.queue-edit-sla { border: 1px solid #d9dee7; color: #5e46bb; background: white; }
+.queue-empty { grid-column: 1 / -1; min-height: 210px; display: grid; place-items: center; align-content: center; gap: 8px; color: #98a2b3; }
+.queue-empty b { color: #475467; }
+.queue-empty span { font-size: .8rem; }
+.sla-helper { margin: -2px 0 0; color: #7a8597; font-size: .78rem; line-height: 1.45; }
 .audit-page { padding: 20px 28px 28px; }
 .audit-hero { min-height: 90px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #1c3441, #3d6876); }
 .audit-hero > div { display: flex; align-items: center; gap: 13px; }
@@ -437,6 +490,13 @@ nav button.active svg { color: #a991ff; }
 }
 
 @media (max-width: 760px) {
+  .queues-page { padding: 14px 16px 24px; }
+  .queues-hero { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .queue-live { margin-left: 0; }
+  .queue-stats, .queue-grid { grid-template-columns: 1fr; }
+  .queues-toolbar { align-items: stretch; flex-direction: column; }
+  .queues-toolbar label, .queues-toolbar select { width: 100%; margin-left: 0; }
+  .queue-empty { grid-column: auto; }
   .audit-page { padding: 14px 16px 24px; }
   .audit-hero { align-items: flex-start; flex-direction: column; gap: 16px; }.audit-hero > button { width: 100%; margin-left: 0; justify-content: center; }
   .audit-stats { grid-template-columns: 1fr; }.audit-toolbar { align-items: stretch; flex-direction: column; }.audit-toolbar label, .audit-toolbar select { width: 100%; margin-left: 0; }
