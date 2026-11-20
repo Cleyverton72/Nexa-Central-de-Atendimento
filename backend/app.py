@@ -77,6 +77,16 @@ def prepare_database():
                 resolved_today INTEGER NOT NULL DEFAULT 0,
                 satisfaction TEXT NOT NULL DEFAULT '—'
             );
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                trigger_text TEXT NOT NULL,
+                action_text TEXT NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'Todos os canais',
+                active INTEGER NOT NULL DEFAULT 1,
+                runs INTEGER NOT NULL DEFAULT 0,
+                last_run TEXT NOT NULL DEFAULT 'Ainda não executada'
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -116,6 +126,17 @@ def prepare_database():
                     ("Marcos Santos", "marcos@acmestore.com", "Atendente", "Financeiro", "ocupado", 6, 31, "4,8"),
                     ("Júlia Mendes", "julia@acmestore.com", "Atendente", "Entregas", "online", 3, 42, "4,9"),
                     ("Pedro Rocha", "pedro@acmestore.com", "Supervisor", "Trocas", "offline", 0, 27, "4,7"),
+                ],
+            )
+        rule_count = database.execute("SELECT COUNT(*) FROM automation_rules").fetchone()[0]
+        if rule_count == 0:
+            database.executemany(
+                "INSERT INTO automation_rules (name, trigger_text, action_text, channel, active, runs, last_run) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("Cobrança ou possível fraude", "Mensagem contém cobrança, fraude ou estorno", "Transferir para Financeiro", "Todos os canais", 1, 18, "Há 7 min"),
+                    ("Pedido sem atualização", "Cliente pede rastreio e o pedido está atrasado", "Criar ticket de alta prioridade", "WhatsApp", 1, 12, "Há 19 min"),
+                    ("Atendimento fora do horário", "Mensagem recebida após as 18h", "Responder com prazo da equipe", "Todos os canais", 1, 27, "Ontem, 22:14"),
+                    ("Baixa confiança da IA", "Confiança da resposta menor que 75%", "Transferir para fila humana", "Todos os canais", 0, 9, "18 nov., 15:42"),
                 ],
             )
 
@@ -251,6 +272,44 @@ def update_team_member(member_id):
         if cursor.rowcount == 0:
             return {"error": "Pessoa não encontrada."}, 404
     return {"id": member_id, "status": status}
+
+
+@app.get("/api/automations")
+def list_automation_rules():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM automation_rules ORDER BY id DESC").fetchall()
+    rules = []
+    for row in rows:
+        rule = dict(row)
+        rule["active"] = bool(rule["active"])
+        rules.append(rule)
+    return jsonify(rules)
+
+
+@app.post("/api/automations")
+def create_automation_rule():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return {"error": "O nome da regra é obrigatório."}, 400
+    with database_connection() as database:
+        cursor = database.execute(
+            "INSERT INTO automation_rules (name, trigger_text, action_text, channel) VALUES (?, ?, ?, ?)",
+            (name, data.get("trigger", "Mensagem contém uma palavra"), data.get("action", "Transferir para fila humana"), data.get("channel", "Todos os canais")),
+        )
+    return {"id": cursor.lastrowid, "name": name, "active": True}, 201
+
+
+@app.patch("/api/automations/<int:rule_id>")
+def update_automation_rule(rule_id):
+    active = (request.json or {}).get("active")
+    if not isinstance(active, bool):
+        return {"error": "O campo active precisa ser verdadeiro ou falso."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE automation_rules SET active = ? WHERE id = ?", (int(active), rule_id))
+        if cursor.rowcount == 0:
+            return {"error": "Regra não encontrada."}, 404
+    return {"id": rule_id, "active": active}
 
 
 @app.get("/api/reports/summary")
