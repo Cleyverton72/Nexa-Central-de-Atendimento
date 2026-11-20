@@ -166,18 +166,37 @@ def classify_message(text):
         return {
             "status": "urgente",
             "mood": "Preocupado",
+            "topic": "Caso delicado",
+            "confidence": 98,
             "reply": "Entendi. Para cuidar deste caso com atenção, já encaminhei a conversa para uma pessoa do nosso time.",
         }
     if any(word in message for word in ("pedido", "entrega", "rastrear")):
-        return {"status": "ia", "mood": "Neutro", "reply": "Encontrei sua solicitação. Vou consultar o andamento do pedido e mostrar a atualização por aqui."}
+        return {"status": "ia", "mood": "Neutro", "topic": "Entrega", "confidence": 92, "reply": "Encontrei sua solicitação. Vou consultar o andamento do pedido e mostrar a atualização por aqui."}
     if any(word in message for word in ("plano", "assinatura", "mensalidade")):
-        return {"status": "ia", "mood": "Neutro", "reply": "Posso ajudar com seu plano. A alteração pode ser feita na área de configurações da conta."}
-    return {"status": "ia", "mood": "Neutro", "reply": "Recebi sua mensagem. Vou buscar a informação correta para ajudar você."}
+        return {"status": "ia", "mood": "Neutro", "topic": "Plano", "confidence": 94, "reply": "Posso ajudar com seu plano. A alteração pode ser feita na área de configurações da conta."}
+    return {"status": "ia", "mood": "Neutro", "topic": "Dúvida geral", "confidence": 68, "reply": "Recebi sua mensagem. Vou buscar a informação correta para ajudar você."}
 
 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "nexa-api"}
+
+
+@app.post("/api/ai/simulate")
+def simulate_ai_response():
+    data = request.json or {}
+    message = data.get("message", "").strip()
+    channel = data.get("channel", "whatsapp")
+    if not message:
+        return {"error": "Escreva uma mensagem para testar."}, 400
+    if channel not in ("whatsapp", "email", "telegram"):
+        return {"error": "Canal inválido."}, 400
+    result = classify_message(message)
+    return {
+        **result,
+        "channel": channel,
+        "action": "Transferir para uma pessoa" if result["status"] == "urgente" else "Responder automaticamente",
+    }
 
 
 @app.get("/api/settings")
