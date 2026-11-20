@@ -96,6 +96,16 @@ def prepare_database():
                 last_sync TEXT NOT NULL DEFAULT 'Nunca',
                 messages_today INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS audit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                level TEXT NOT NULL DEFAULT 'info',
+                date_text TEXT NOT NULL,
+                time_text TEXT NOT NULL
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -156,6 +166,18 @@ def prepare_database():
                     ("whatsapp", "WhatsApp Business", "+55 11 98765-4321", 1, "Agora", 86),
                     ("email", "E-mail", "atendimento@acmestore.com", 1, "Há 2 min", 41),
                     ("telegram", "Telegram", "Nenhuma conta conectada", 0, "Nunca", 0),
+                ],
+            )
+        audit_count = database.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0]
+        if audit_count == 0:
+            database.executemany(
+                "INSERT INTO audit_events (title, description, actor, event_type, level, date_text, time_text) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("Caso delicado transferido", "A conversa de Rafael Lima foi encaminhada ao time Financeiro.", "Nexa IA", "ia", "warning", "Hoje", "10:37"),
+                    ("Ticket #1042 criado", "Um ticket urgente foi criado para acompanhar uma possível fraude.", "Automação", "ticket", "warning", "Hoje", "10:38"),
+                    ("Resposta automática enviada", "A IA informou a previsão de entrega do pedido #4821.", "Nexa IA", "ia", "success", "Hoje", "10:42"),
+                    ("Disponibilidade atualizada", "Pedro Rocha alterou sua situação para disponível.", "Pedro Rocha", "humano", "info", "Hoje", "09:54"),
+                    ("Integração sincronizada", "A caixa de e-mail foi sincronizada sem erros.", "Sistema", "sistema", "success", "Hoje", "09:31"),
                 ],
             )
 
@@ -377,6 +399,27 @@ def update_channel_integration(channel):
         if cursor.rowcount == 0:
             return {"error": "Integração não encontrada."}, 404
     return {"channel": channel, "account": account, "connected": connected, "last_sync": last_sync}
+
+
+@app.get("/api/audit")
+def list_audit_events():
+    event_type = request.args.get("type", "todos")
+    query = request.args.get("q", "").strip()
+    clauses = []
+    values = []
+    if event_type != "todos":
+        if event_type not in ("ia", "humano", "ticket", "sistema"):
+            return {"error": "Tipo de evento inválido."}, 400
+        clauses.append("event_type = ?")
+        values.append(event_type)
+    if query:
+        clauses.append("(title LIKE ? OR description LIKE ? OR actor LIKE ?)")
+        term = f"%{query}%"
+        values.extend([term, term, term])
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with database_connection() as database:
+        rows = database.execute(f"SELECT * FROM audit_events {where} ORDER BY id DESC", values).fetchall()
+    return jsonify([dict(row) for row in rows])
 
 
 @app.get("/api/reports/summary")
