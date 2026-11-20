@@ -57,6 +57,15 @@ def prepare_database():
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS knowledge_articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL,
+                excerpt TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                uses INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -77,6 +86,16 @@ def prepare_database():
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('preferences', ?)",
             (json.dumps({"whatsapp": True, "email": True, "telegram": False, "autoReply": True, "humanTransfer": True, "tone": "Acolhedor", "confidence": 75, "start": "08:00", "end": "18:00", "days": ["Seg", "Ter", "Qua", "Qui", "Sex"]}),),
         )
+        article_count = database.execute("SELECT COUNT(*) FROM knowledge_articles").fetchone()[0]
+        if article_count == 0:
+            database.executemany(
+                "INSERT INTO knowledge_articles (title, category, excerpt, active, uses, updated_at) VALUES (?, ?, ?, 1, ?, ?)",
+                [
+                    ("Como acompanhar um pedido", "Entregas", "Orienta o cliente a consultar o código de rastreio e o prazo previsto.", 84, datetime.now().isoformat()),
+                    ("Troca de produto com defeito", "Trocas", "Explica os prazos, documentos e etapas para solicitar uma troca.", 57, datetime.now().isoformat()),
+                    ("Cobrança não reconhecida", "Financeiro", "Informa os cuidados de segurança e transfere o caso para o time financeiro.", 39, datetime.now().isoformat()),
+                ],
+            )
 
 
 def classify_message(text):
@@ -134,6 +153,40 @@ def dashboard_summary():
         "open_tickets": open_tickets,
         "channels": {row["channel"]: row["total"] for row in channel_rows},
     }
+
+
+@app.get("/api/knowledge")
+def list_knowledge_articles():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM knowledge_articles ORDER BY id DESC").fetchall()
+    return jsonify([{**dict(row), "active": bool(row["active"])} for row in rows])
+
+
+@app.post("/api/knowledge")
+def create_knowledge_article():
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    excerpt = data.get("excerpt", "").strip()
+    if not title or not excerpt:
+        return {"error": "Título e resposta são obrigatórios."}, 400
+    with database_connection() as database:
+        cursor = database.execute(
+            "INSERT INTO knowledge_articles (title, category, excerpt, active, uses, updated_at) VALUES (?, ?, ?, 1, 0, ?)",
+            (title, data.get("category", "Atendimento"), excerpt, datetime.now().isoformat()),
+        )
+    return {"id": cursor.lastrowid, "title": title, "active": True}, 201
+
+
+@app.patch("/api/knowledge/<int:article_id>")
+def update_knowledge_article(article_id):
+    active = (request.json or {}).get("active")
+    if not isinstance(active, bool):
+        return {"error": "O campo active precisa ser verdadeiro ou falso."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE knowledge_articles SET active = ?, updated_at = ? WHERE id = ?", (int(active), datetime.now().isoformat(), article_id))
+        if cursor.rowcount == 0:
+            return {"error": "Artigo não encontrado."}, 404
+    return {"id": article_id, "active": active}
 
 
 @app.get("/api/reports/summary")

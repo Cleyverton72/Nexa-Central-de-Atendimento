@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Activity, Bell, Bot, Check, ChevronDown, CircleUserRound, Clock3,
+  Activity, Bell, BookOpen, Bot, Check, ChevronDown, CircleUserRound, Clock3, FileText,
   Headphones, Inbox, LayoutDashboard, Mail, Menu, MessageCircle,
   MoreHorizontal, Plus, Search, Send, Settings, Sparkles, Tag,
   TicketCheck, UserRound, UsersRound, X, Zap
@@ -70,6 +70,14 @@ const seedTickets = [
   { id: 1039, title: "Mudança de plano concluída", customer: "Camila Oliveira", priority: "Baixa", assignee: "Ana Silva", status: "resolvido", created: "Ontem" }
 ];
 
+const seedArticles = [
+  { id: 1, title: "Como acompanhar um pedido", category: "Entregas", excerpt: "Orienta o cliente a consultar o código de rastreio e o prazo previsto.", updated: "Hoje, 09:18", active: true, uses: 84 },
+  { id: 2, title: "Troca de produto com defeito", category: "Trocas", excerpt: "Explica os prazos, documentos e etapas para solicitar uma troca.", updated: "Ontem, 16:42", active: true, uses: 57 },
+  { id: 3, title: "Cobrança não reconhecida", category: "Financeiro", excerpt: "Informa os cuidados de segurança e transfere o caso para o time financeiro.", updated: "18 nov., 11:05", active: true, uses: 39 },
+  { id: 4, title: "Alteração de plano", category: "Conta", excerpt: "Mostra onde trocar o plano e quando a mudança entra em vigor.", updated: "17 nov., 14:30", active: true, uses: 63 },
+  { id: 5, title: "Atendimento fora do horário", category: "Atendimento", excerpt: "Coleta os dados do cliente e informa o próximo horário da equipe.", updated: "15 nov., 08:20", active: false, uses: 21 }
+];
+
 const statusLabel = {
   ia: ["IA respondendo", "violet"], urgente: ["Urgente", "red"],
   humano: ["Com atendente", "blue"], resolvido: ["Resolvido", "green"]
@@ -99,7 +107,7 @@ function Sidebar({ open, onClose, activeView, onViewChange }) {
   const nav = [
     [LayoutDashboard, "Visão geral"], [Inbox, "Conversas", "12"],
     [TicketCheck, "Tickets", "5"], [UsersRound, "Clientes"],
-    [Activity, "Relatórios"], [Settings, "Configurações"]
+    [BookOpen, "Base de conhecimento"], [Activity, "Relatórios"], [Settings, "Configurações"]
   ];
   return <aside className={`sidebar ${open ? "open" : ""}`}>
     <div className="brand"><span className="brand-mark"><Zap size={20} fill="currentColor" /></span><span>Nexa</span><button className="mobile-close" onClick={onClose} aria-label="Fechar menu"><X /></button></div>
@@ -108,7 +116,7 @@ function Sidebar({ open, onClose, activeView, onViewChange }) {
       <p className="nav-title">ATENDIMENTO</p>
       {nav.slice(0, 4).map(([Icon, label, count]) => <button key={label} className={(label === "Visão geral" && activeView === "dashboard") || (label === "Conversas" && activeView === "conversations") || (label === "Tickets" && activeView === "tickets") || (label === "Clientes" && activeView === "customers") ? "active" : ""} onClick={() => { if (label === "Visão geral") onViewChange("dashboard"); if (label === "Conversas") onViewChange("conversations"); if (label === "Tickets") onViewChange("tickets"); if (label === "Clientes") onViewChange("customers"); onClose(); }}><Icon size={19} /><span>{label}</span>{count && <em>{count}</em>}</button>)}
       <p className="nav-title">GESTÃO</p>
-      {nav.slice(4).map(([Icon, label]) => <button key={label} className={(label === "Relatórios" && activeView === "reports") || (label === "Configurações" && activeView === "settings") ? "active" : ""} onClick={() => { if (label === "Relatórios") onViewChange("reports"); if (label === "Configurações") onViewChange("settings"); onClose(); }}><Icon size={19} /><span>{label}</span></button>)}
+      {nav.slice(4).map(([Icon, label]) => <button key={label} className={(label === "Base de conhecimento" && activeView === "knowledge") || (label === "Relatórios" && activeView === "reports") || (label === "Configurações" && activeView === "settings") ? "active" : ""} onClick={() => { if (label === "Base de conhecimento") onViewChange("knowledge"); if (label === "Relatórios") onViewChange("reports"); if (label === "Configurações") onViewChange("settings"); onClose(); }}><Icon size={19} /><span>{label}</span></button>)}
     </nav>
     <div className="ai-card"><div><Sparkles size={18} /><b>Agente de IA</b></div><span className="online"><i />Ativo agora</span><p>87% das conversas resolvidas automaticamente.</p></div>
     <div className="profile"><span className="profile-avatar">AS</span><div><b>Ana Silva</b><small>Administradora</small></div><MoreHorizontal size={19} /></div>
@@ -224,6 +232,19 @@ function CustomersPage({ customers, onOpenConversation }) {
   return <section className="customers-page"><div className="customer-summary"><StatCard icon={UsersRound} label="Clientes cadastrados" value={profiles.length} detail="Base ativa da central" tone="purple" /><StatCard icon={Activity} label="Clientes fiéis" value={loyalCount} detail="4 ou mais pedidos" tone="teal" /><StatCard icon={TicketCheck} label="Média de pedidos" value={averageOrders} detail="por cliente" tone="orange" /></div><div className="customers-panel"><header><div><h2>Base de clientes</h2><p>Consulte contatos e abra o histórico de atendimento.</p></div></header><div className="customers-toolbar"><label><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, e-mail ou telefone..." /></label><select value={segment} onChange={event => setSegment(event.target.value)} aria-label="Filtrar por segmento"><option value="todos">Todos os segmentos</option><option>Fiel</option><option>Recorrente</option><option>Novo</option></select></div><div className="customers-table"><div className="customers-table-head"><span>Cliente</span><span>Canal preferido</span><span>Segmento</span><span>Pedidos</span><span>Satisfação</span><span>Histórico</span></div>{visible.map(customer => <article className="customer-row" key={customer.id}><div className="customer-identity"><span className="avatar">{customer.initials}</span><div><b>{customer.name}</b><small>{customer.email}</small><small>{customer.phone}</small></div></div><span><ChannelBadge channel={customer.channel} /></span><span><em className={`customer-segment ${customer.segment.toLowerCase()}`}>{customer.segment}</em><small className="customer-since">Desde {customer.since}</small></span><strong>{customer.orders}</strong><span className="customer-rating"><b>★ {customer.satisfaction}</b><small>{customer.mood}</small></span><button className="history-button" onClick={() => onOpenConversation(customer.id)}><MessageCircle size={15} />Abrir conversa</button></article>)}{visible.length === 0 && <div className="customers-empty"><Search size={26} /><b>Nenhum cliente encontrado</b><span>Tente outro nome ou segmento.</span></div>}</div></div></section>;
 }
 
+function KnowledgePage({ articles, onAdd, onToggle }) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("Todas");
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState({ title: "", category: "Entregas", content: "" });
+  const categories = ["Todas", ...new Set(articles.map(article => article.category))];
+  const visible = articles.filter(article => (category === "Todas" || article.category === category) && `${article.title} ${article.excerpt} ${article.category}`.toLowerCase().includes(query.toLowerCase()));
+  const activeCount = articles.filter(article => article.active).length;
+  const totalUses = articles.reduce((total, article) => total + article.uses, 0);
+  const submit = () => { if (!draft.title.trim() || !draft.content.trim()) return; onAdd({ title: draft.title.trim(), category: draft.category, excerpt: draft.content.trim() }); setDraft({ title: "", category: "Entregas", content: "" }); setCreating(false); };
+  return <section className="knowledge-page"><div className="knowledge-hero"><div><span><BookOpen size={23} /></span><div><h2>Ensine a IA com respostas confiáveis</h2><p>Cadastre informações que o agente pode usar durante os atendimentos.</p></div></div><button onClick={() => setCreating(true)}><Plus size={18} />Novo artigo</button></div><div className="knowledge-stats"><StatCard icon={FileText} label="Artigos cadastrados" value={articles.length} detail="Conteúdos da empresa" tone="purple" /><StatCard icon={Check} label="Artigos ativos" value={activeCount} detail="Disponíveis para a IA" tone="teal" /><StatCard icon={Bot} label="Respostas utilizadas" value={totalUses} detail="Neste mês" tone="blue" /></div><div className="knowledge-panel"><header><div><h3>Conteúdos da base</h3><p>Pesquise, filtre e escolha o que a IA pode consultar.</p></div></header><div className="knowledge-toolbar"><label><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar artigo..." /></label><select value={category} onChange={event => setCategory(event.target.value)} aria-label="Filtrar categoria">{categories.map(item => <option key={item}>{item}</option>)}</select></div><div className="articles-grid">{visible.map(article => <article className="article-card" key={article.id}><div className="article-top"><span><FileText size={19} /></span><em>{article.category}</em><button className={`switch ${article.active ? "on" : ""}`} role="switch" aria-checked={article.active} aria-label={`${article.active ? "Desativar" : "Ativar"} ${article.title}`} onClick={() => onToggle(article.id)}><i /></button></div><h4>{article.title}</h4><p>{article.excerpt}</p><footer><span>Atualizado {article.updated}</span><b><Bot size={14} />{article.uses} usos</b></footer></article>)}{visible.length === 0 && <div className="knowledge-empty"><Search size={26} /><b>Nenhum artigo encontrado</b><span>Tente outro termo ou categoria.</span></div>}</div></div>{creating && <div className="modal-backdrop" role="presentation" onMouseDown={() => setCreating(false)}><div className="modal" role="dialog" aria-modal="true" onMouseDown={event => event.stopPropagation()}><div className="modal-title"><span><BookOpen size={20} /></span><div><h2>Novo artigo</h2><p>Adicione uma resposta para a IA consultar.</p></div><button onClick={() => setCreating(false)} aria-label="Fechar"><X /></button></div><label>Título<input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="Ex.: Como alterar o endereço" /></label><label>Categoria<select value={draft.category} onChange={event => setDraft(current => ({ ...current, category: event.target.value }))}><option>Entregas</option><option>Trocas</option><option>Financeiro</option><option>Conta</option><option>Atendimento</option></select></label><label>Resposta<textarea className="modal-textarea" value={draft.content} onChange={event => setDraft(current => ({ ...current, content: event.target.value }))} placeholder="Escreva a informação que a IA poderá usar." /></label><div className="modal-actions"><button onClick={() => setCreating(false)}>Cancelar</button><button className="primary" disabled={!draft.title.trim() || !draft.content.trim()} onClick={submit}>Criar artigo</button></div></div></div>}</section>;
+}
+
 function SettingsPage({ onSaved }) {
   const defaults = { whatsapp: true, email: true, telegram: false, autoReply: true, humanTransfer: true, tone: "Acolhedor", confidence: 75, start: "08:00", end: "18:00", days: ["Seg", "Ter", "Qua", "Qui", "Sex"] };
   const [preferences, setPreferences] = useState(() => {
@@ -247,6 +268,7 @@ function App() {
   const [activeView, setActiveView] = useState("dashboard");
   const [conversations, setConversations] = useState(seedConversations);
   const [tickets, setTickets] = useState(seedTickets);
+  const [articles, setArticles] = useState(seedArticles);
   const [selectedId, setSelectedId] = useState(1);
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
@@ -277,6 +299,8 @@ function App() {
     setToast(`Ticket #${newTicket.id} criado com prioridade ${ticket.priority.toLowerCase()}.`);
   };
   const resolveTicket = id => { setTickets(items => items.map(ticket => ticket.id === id ? { ...ticket, status: "resolvido" } : ticket)); setToast(`Ticket #${id} marcado como resolvido.`); };
+  const addArticle = article => { setArticles(items => [...items, { ...article, id: Math.max(...items.map(item => item.id), 0) + 1, updated: "Agora", active: true, uses: 0 }]); setToast("Artigo criado e disponibilizado para a IA."); };
+  const toggleArticle = id => { setArticles(items => items.map(article => article.id === id ? { ...article, active: !article.active } : article)); setToast("Disponibilidade do artigo atualizada."); };
   const receiveIncoming = async draft => {
     const fallback = () => {
       const result = classifyIncoming(draft.message);
@@ -297,8 +321,8 @@ function App() {
     setMobileChat(true);
     setToast(incoming.status === "urgente" ? "Caso delicado enviado para a fila humana." : "A IA classificou e respondeu à nova mensagem.");
   };
-  const viewTitle = activeView === "dashboard" ? "Visão geral" : activeView === "tickets" ? "Gestão de tickets" : activeView === "customers" ? "Clientes" : activeView === "reports" ? "Relatórios" : activeView === "settings" ? "Configurações" : "Central de atendimento";
-  const viewDescription = activeView === "dashboard" ? "Acompanhe tudo o que está acontecendo na sua operação." : activeView === "tickets" ? "Organize prioridades e acompanhe a solução dos chamados." : activeView === "customers" ? "Conheça o histórico e o perfil de cada cliente." : activeView === "reports" ? "Acompanhe resultados e encontre oportunidades de melhoria." : activeView === "settings" ? "Controle canais, automações e horários da sua operação." : "Acompanhe e gerencie todos os canais em um só lugar.";
+  const viewTitle = activeView === "dashboard" ? "Visão geral" : activeView === "tickets" ? "Gestão de tickets" : activeView === "customers" ? "Clientes" : activeView === "knowledge" ? "Base de conhecimento" : activeView === "reports" ? "Relatórios" : activeView === "settings" ? "Configurações" : "Central de atendimento";
+  const viewDescription = activeView === "dashboard" ? "Acompanhe tudo o que está acontecendo na sua operação." : activeView === "tickets" ? "Organize prioridades e acompanhe a solução dos chamados." : activeView === "customers" ? "Conheça o histórico e o perfil de cada cliente." : activeView === "knowledge" ? "Organize as informações usadas nas respostas da IA." : activeView === "reports" ? "Acompanhe resultados e encontre oportunidades de melhoria." : activeView === "settings" ? "Controle canais, automações e horários da sua operação." : "Acompanhe e gerencie todos os canais em um só lugar.";
   const openCustomerConversation = id => { setSelectedId(id); setActiveView("conversations"); setMobileChat(true); };
 
   return <div className="app-shell">
@@ -306,7 +330,7 @@ function App() {
     {menuOpen && <button className="sidebar-overlay" onClick={() => setMenuOpen(false)} aria-label="Fechar menu" />}
     <main className="main">
       <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Abrir menu"><Menu /></button><div><h1>{viewTitle}</h1><p>{viewDescription}</p></div><div className="top-actions"><button className="availability"><i />Disponível<ChevronDown size={15} /></button><button className="icon-button" aria-label="Notificações"><Bell size={20} /><i /></button><span className="top-avatar">AS</span></div></header>
-      {activeView === "dashboard" ? <DashboardPage conversations={conversations} tickets={tickets} onOpenConversation={openCustomerConversation} onOpenTickets={() => setActiveView("tickets")} onOpenConversations={() => setActiveView("conversations")} /> : activeView === "conversations" ? <><section className="stats-grid"><StatCard icon={MessageCircle} label="Atendimentos hoje" value="148" detail="↑ 12% vs. ontem" tone="purple" /><StatCard icon={Bot} label="Resolvidos pela IA" value="87%" detail="129 conversas" tone="teal" /><StatCard icon={UsersRound} label="Na fila humana" value="12" detail="3 aguardando há +5 min" tone="orange" /><StatCard icon={Clock3} label="Tempo médio" value="2m 14s" detail="↓ 18s esta semana" tone="blue" /></section><section className={`inbox-layout ${mobileChat ? "mobile-chat" : ""}`}><ConversationList conversations={visible} selectedId={selectedId} onSelect={id => { setSelectedId(id); setMobileChat(true); }} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} onNew={() => setIncomingOpen(true)} /><Chat conversation={selected} onSend={sendMessage} onTransfer={transfer} onTicket={() => setTicketOpen(true)} transferred={transferred.includes(selectedId)} onBack={() => setMobileChat(false)} /><CustomerPanel conversation={selected} /></section></> : activeView === "tickets" ? <TicketBoard tickets={tickets} onResolve={resolveTicket} onBack={() => setActiveView("conversations")} /> : activeView === "customers" ? <CustomersPage customers={conversations} onOpenConversation={openCustomerConversation} /> : activeView === "settings" ? <SettingsPage onSaved={() => setToast("Configurações salvas com sucesso.")} /> : <ReportsPage />}
+      {activeView === "dashboard" ? <DashboardPage conversations={conversations} tickets={tickets} onOpenConversation={openCustomerConversation} onOpenTickets={() => setActiveView("tickets")} onOpenConversations={() => setActiveView("conversations")} /> : activeView === "conversations" ? <><section className="stats-grid"><StatCard icon={MessageCircle} label="Atendimentos hoje" value="148" detail="↑ 12% vs. ontem" tone="purple" /><StatCard icon={Bot} label="Resolvidos pela IA" value="87%" detail="129 conversas" tone="teal" /><StatCard icon={UsersRound} label="Na fila humana" value="12" detail="3 aguardando há +5 min" tone="orange" /><StatCard icon={Clock3} label="Tempo médio" value="2m 14s" detail="↓ 18s esta semana" tone="blue" /></section><section className={`inbox-layout ${mobileChat ? "mobile-chat" : ""}`}><ConversationList conversations={visible} selectedId={selectedId} onSelect={id => { setSelectedId(id); setMobileChat(true); }} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} onNew={() => setIncomingOpen(true)} /><Chat conversation={selected} onSend={sendMessage} onTransfer={transfer} onTicket={() => setTicketOpen(true)} transferred={transferred.includes(selectedId)} onBack={() => setMobileChat(false)} /><CustomerPanel conversation={selected} /></section></> : activeView === "tickets" ? <TicketBoard tickets={tickets} onResolve={resolveTicket} onBack={() => setActiveView("conversations")} /> : activeView === "customers" ? <CustomersPage customers={conversations} onOpenConversation={openCustomerConversation} /> : activeView === "knowledge" ? <KnowledgePage articles={articles} onAdd={addArticle} onToggle={toggleArticle} /> : activeView === "settings" ? <SettingsPage onSaved={() => setToast("Configurações salvas com sucesso.")} /> : <ReportsPage />}
     </main>
     {ticketOpen && <TicketModal conversation={selected} onClose={() => setTicketOpen(false)} onCreate={createTicket} />}
     {incomingOpen && <IncomingModal onClose={() => setIncomingOpen(false)} onCreate={receiveIncoming} />}
