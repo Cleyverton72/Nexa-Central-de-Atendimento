@@ -87,6 +87,15 @@ def prepare_database():
                 runs INTEGER NOT NULL DEFAULT 0,
                 last_run TEXT NOT NULL DEFAULT 'Ainda não executada'
             );
+            CREATE TABLE IF NOT EXISTS channel_integrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                channel TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                account TEXT NOT NULL,
+                connected INTEGER NOT NULL DEFAULT 0,
+                last_sync TEXT NOT NULL DEFAULT 'Nunca',
+                messages_today INTEGER NOT NULL DEFAULT 0
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -137,6 +146,16 @@ def prepare_database():
                     ("Pedido sem atualização", "Cliente pede rastreio e o pedido está atrasado", "Criar ticket de alta prioridade", "WhatsApp", 1, 12, "Há 19 min"),
                     ("Atendimento fora do horário", "Mensagem recebida após as 18h", "Responder com prazo da equipe", "Todos os canais", 1, 27, "Ontem, 22:14"),
                     ("Baixa confiança da IA", "Confiança da resposta menor que 75%", "Transferir para fila humana", "Todos os canais", 0, 9, "18 nov., 15:42"),
+                ],
+            )
+        integration_count = database.execute("SELECT COUNT(*) FROM channel_integrations").fetchone()[0]
+        if integration_count == 0:
+            database.executemany(
+                "INSERT INTO channel_integrations (channel, name, account, connected, last_sync, messages_today) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    ("whatsapp", "WhatsApp Business", "+55 11 98765-4321", 1, "Agora", 86),
+                    ("email", "E-mail", "atendimento@acmestore.com", 1, "Há 2 min", 41),
+                    ("telegram", "Telegram", "Nenhuma conta conectada", 0, "Nunca", 0),
                 ],
             )
 
@@ -310,6 +329,35 @@ def update_automation_rule(rule_id):
         if cursor.rowcount == 0:
             return {"error": "Regra não encontrada."}, 404
     return {"id": rule_id, "active": active}
+
+
+@app.get("/api/integrations")
+def list_channel_integrations():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM channel_integrations ORDER BY id").fetchall()
+    return jsonify([{**dict(row), "connected": bool(row["connected"])} for row in rows])
+
+
+@app.put("/api/integrations/<channel>")
+def update_channel_integration(channel):
+    if channel not in ("whatsapp", "email", "telegram"):
+        return {"error": "Canal inválido."}, 400
+    data = request.json or {}
+    connected = data.get("connected")
+    if not isinstance(connected, bool):
+        return {"error": "O campo connected precisa ser verdadeiro ou falso."}, 400
+    account = data.get("account", "").strip() if connected else "Nenhuma conta conectada"
+    if connected and not account:
+        return {"error": "Informe a conta que será conectada."}, 400
+    last_sync = "Agora" if connected else "Nunca"
+    with database_connection() as database:
+        cursor = database.execute(
+            "UPDATE channel_integrations SET account = ?, connected = ?, last_sync = ? WHERE channel = ?",
+            (account, int(connected), last_sync, channel),
+        )
+        if cursor.rowcount == 0:
+            return {"error": "Integração não encontrada."}, 404
+    return {"channel": channel, "account": account, "connected": connected, "last_sync": last_sync}
 
 
 @app.get("/api/reports/summary")

@@ -24,7 +24,8 @@ nav button em { font-style: normal; font-size: 11px; font-weight: 700; backgroun
 nav button:hover, nav button.active { color: white; background: #28213f; }
 nav button.active { box-shadow: inset 3px 0 #8b6bf2; }
 nav button.active svg { color: #a991ff; }
-.ai-card { margin-top: auto; padding: 14px; background: linear-gradient(145deg, #292044, #1d2939); border: 1px solid #3c3261; border-radius: 12px; }
+.sidebar nav { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.ai-card { flex: 0 0 auto; margin-top: 14px; padding: 14px; background: linear-gradient(145deg, #292044, #1d2939); border: 1px solid #3c3261; border-radius: 12px; }
 .ai-card > div { display: flex; align-items: center; gap: 8px; color: #f4f0ff; font-size: 13px; }
 .ai-card svg { color: #a991ff; }
 .online { display: flex; align-items: center; gap: 6px; margin-top: 11px; font-size: 11px; color: #a7e8c4; }
@@ -127,6 +128,40 @@ nav button.active svg { color: #a991ff; }
 .customers-empty { min-height: 230px; display: grid; place-items: center; align-content: center; gap: 8px; color: #98a2b3; }
 .customers-empty b { color: #475467; }
 .customers-empty span { font-size: .8rem; }
+.integrations-page { padding: 20px 28px 28px; }
+.integrations-hero { min-height: 90px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #153552, #247b9a); }
+.integrations-hero > div { display: flex; align-items: center; gap: 13px; }
+.integrations-hero > div > span { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 11px; color: #e2f7ff; background: rgba(255,255,255,.13); }
+.integrations-hero h2 { margin: 0; font: 700 1.15rem 'Manrope'; }
+.integrations-hero p { margin: 5px 0 0; color: #d7ecf3; font-size: .875rem; }
+.integration-health { display: flex; align-items: center; gap: 8px; margin-left: auto; padding: 8px 11px; border-radius: 9px; color: #e4fff0; background: rgba(13,49,52,.3); font-size: .8rem; }
+.integration-health i { width: 8px; height: 8px; border-radius: 50%; background: #51df91; box-shadow: 0 0 0 4px rgba(81,223,145,.12); }
+.integration-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 15px; }
+.integrations-panel { overflow: hidden; background: white; border: 1px solid #e1e6ed; border-radius: 13px; }
+.integrations-panel > header { padding: 18px 20px; border-bottom: 1px solid #e8ebf0; }
+.integrations-panel h3 { margin: 0; font: 700 1rem 'Manrope'; }
+.integrations-panel header p { margin: 4px 0 0; color: #7a8597; font-size: .875rem; }
+.integration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 16px; background: #fafbfc; }
+.integration-card { min-width: 0; padding: 18px; border: 1px solid #e2e6ec; border-radius: 11px; background: white; }
+.integration-card.connected { border-color: #d5e7e1; box-shadow: inset 0 3px #48ad83; }
+.integration-card-top { display: flex; align-items: center; gap: 11px; }
+.integration-logo { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border-radius: 12px; }
+.integration-logo.whatsapp { color: #23995a; background: #e7f8ef; }.integration-logo.email { color: #ce4d52; background: #fdeced; }.integration-logo.telegram { color: #2786bf; background: #e8f4fb; }
+.integration-card-top > div { min-width: 0; }
+.integration-card h4 { margin: 0; color: #263142; font: 700 .95rem 'Manrope'; }
+.connection-badge { width: fit-content; display: flex; align-items: center; gap: 6px; margin-top: 5px; padding: 3px 7px; border-radius: 11px; font-size: .75rem; font-weight: 700; }
+.connection-badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.connection-badge.connected { color: #21855a; background: #e2f6ec; }.connection-badge.disconnected { color: #7a8597; background: #edf0f3; }
+.integration-card > p { min-height: 64px; margin: 16px 0; color: #667085; font-size: .875rem; line-height: 1.5; }
+.integration-card dl { margin: 0; padding: 12px; border-radius: 9px; background: #f8f9fb; }
+.integration-card dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.integration-card dt { color: #7a8597; font-size: .78rem; }.integration-card dd { margin: 0; overflow: hidden; color: #344054; font-size: .78rem; font-weight: 700; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.integration-card footer { display: flex; gap: 8px; margin-top: 16px; }
+.integration-card footer button { height: 38px; padding: 0 12px; border-radius: 8px; font-size: .8rem; font-weight: 700; }
+.configure-integration { flex: 1; border: 1px solid #7658df; color: #6748cc; background: #f5f2ff; }.disconnect-integration { border: 1px solid #e0e4e9; color: #667085; background: white; }
+.integration-note { display: flex; align-items: flex-start; gap: 10px; margin: 0 16px 16px; padding: 13px; border: 1px solid #e2ddf4; border-radius: 9px; color: #6748cc; background: #f7f4ff; }
+.integration-note svg { flex: 0 0 auto; }.integration-note b { color: #443084; font-size: .875rem; }.integration-note p { margin: 3px 0 0; color: #667085; font-size: .8rem; }
+.credential-note { margin: 2px 0 0; padding: 10px; border-radius: 8px; color: #6e5a2c; background: #fff8e8; font-size: .78rem; line-height: 1.45; }
 .automation-page { padding: 20px 28px 28px; }
 .automation-hero { min-height: 90px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #3e286f, #7658df); }
 .automation-hero > div { display: flex; align-items: center; gap: 13px; }
@@ -344,6 +379,11 @@ nav button.active svg { color: #a991ff; }
 }
 
 @media (max-width: 760px) {
+  .integrations-page { padding: 14px 16px 24px; }
+  .integrations-hero { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .integration-health { margin-left: 0; }
+  .integration-stats, .integration-grid { grid-template-columns: 1fr; }
+  .integration-card > p { min-height: auto; }
   .automation-page { padding: 14px 16px 24px; }
   .automation-hero { align-items: flex-start; flex-direction: column; gap: 16px; }
   .automation-hero > button { width: 100%; margin-left: 0; justify-content: center; }
