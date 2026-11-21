@@ -118,6 +118,18 @@ def prepare_database():
                 handled_today INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'healthy'
             );
+            CREATE TABLE IF NOT EXISTS customer_reviews (
+                id INTEGER PRIMARY KEY,
+                customer TEXT NOT NULL,
+                initials TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                channel TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                comment TEXT NOT NULL,
+                date_text TEXT NOT NULL,
+                replied INTEGER NOT NULL DEFAULT 0,
+                response TEXT NOT NULL DEFAULT ''
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -201,6 +213,18 @@ def prepare_database():
                     (2, "Financeiro", "Cobranças e pagamentos", 3, 2, 4, 9, 62, 28, "critical"),
                     (3, "Entregas", "Pedidos e rastreio", 2, 2, 8, 3, 93, 47, "healthy"),
                     (4, "Trocas", "Devoluções e defeitos", 3, 1, 10, 12, 74, 31, "attention"),
+                ],
+            )
+        review_count = database.execute("SELECT COUNT(*) FROM customer_reviews").fetchone()[0]
+        if review_count == 0:
+            database.executemany(
+                "INSERT INTO customer_reviews (id, customer, initials, rating, channel, topic, comment, date_text, replied, response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, "Marina Costa", "MC", 5, "whatsapp", "Entrega", "A resposta chegou rápido e consegui acompanhar meu pedido.", "Hoje, 10:50", 1, "Que bom que ajudamos, Marina! Obrigada pela avaliação."),
+                    (2, "Rafael Lima", "RL", 2, "email", "Financeiro", "Meu caso foi transferido, mas ainda estou preocupado com a cobrança.", "Hoje, 10:44", 0, ""),
+                    (3, "Camila Oliveira", "CO", 5, "telegram", "Conta", "Encontrei onde trocar o plano e deu tudo certo.", "Hoje, 10:31", 1, "Ficamos felizes com o resultado, Camila!"),
+                    (4, "João Pedro", "JP", 3, "whatsapp", "Trocas", "O atendimento foi educado, mas ainda aguardo a troca do produto.", "Hoje, 10:26", 0, ""),
+                    (5, "Beatriz Souza", "BS", 5, "email", "Atendimento", "Resolveram minha dúvida com muita atenção. Obrigada!", "Hoje, 10:18", 1, "Obrigada pelo carinho, Beatriz! Conte com a gente."),
                 ],
             )
 
@@ -480,6 +504,31 @@ def update_support_queue(queue_id):
         )
         updated = database.execute("SELECT * FROM support_queues WHERE id = ?", (queue_id,)).fetchone()
     return jsonify(dict(updated))
+
+
+@app.get("/api/reviews")
+def list_customer_reviews():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM customer_reviews ORDER BY id").fetchall()
+    return jsonify([{**dict(row), "replied": bool(row["replied"])} for row in rows])
+
+
+@app.patch("/api/reviews/<int:review_id>")
+def reply_customer_review(review_id):
+    response = (request.json or {}).get("response", "").strip()
+    if not response:
+        return {"error": "Escreva uma resposta antes de enviar."}, 400
+    with database_connection() as database:
+        cursor = database.execute(
+            "UPDATE customer_reviews SET replied = 1, response = ? WHERE id = ?",
+            (response, review_id),
+        )
+        if cursor.rowcount == 0:
+            return {"error": "Avaliação não encontrada."}, 404
+        updated = database.execute("SELECT * FROM customer_reviews WHERE id = ?", (review_id,)).fetchone()
+    item = dict(updated)
+    item["replied"] = bool(item["replied"])
+    return jsonify(item)
 
 
 @app.get("/api/reports/summary")

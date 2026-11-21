@@ -18,6 +18,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - base de conhecimento com busca, categorias e novos artigos;
 - gestão da equipe com disponibilidade, carga de trabalho e cadastro de atendentes;
 - gestão das filas humanas com SLA, capacidade e redistribuição de casos;
+- avaliações dos clientes com filtros, respostas e acompanhamento de notas baixas;
 - regras de automação com condições, ações e ativação individual;
 - painel de integrações para WhatsApp, e-mail e Telegram;
 - ambiente de teste para classificação, resposta e transferência da IA;
