@@ -139,6 +139,14 @@ def prepare_database():
                 target TEXT NOT NULL,
                 read INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS quick_replies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL,
+                shortcut TEXT NOT NULL UNIQUE,
+                message TEXT NOT NULL,
+                uses INTEGER NOT NULL DEFAULT 0
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -245,6 +253,18 @@ def prepare_database():
                     (2, "Nova avaliação de 2 estrelas", "Rafael ainda está preocupado com uma cobrança.", "Há 6 min", "review", "reviews", 0),
                     (3, "Ticket urgente criado", "O ticket #1042 precisa do time Financeiro.", "Há 12 min", "ticket", "tickets", 0),
                     (4, "E-mail sincronizado", "41 mensagens foram processadas hoje.", "Há 24 min", "integration", "integrations", 1),
+                ],
+            )
+        quick_reply_count = database.execute("SELECT COUNT(*) FROM quick_replies").fetchone()[0]
+        if quick_reply_count == 0:
+            database.executemany(
+                "INSERT INTO quick_replies (title, category, shortcut, message, uses) VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("Pedido em transporte", "Entregas", "/rastreio", "Seu pedido já está em transporte. Vou consultar a previsão atualizada para você.", 84),
+                    ("Caso enviado ao Financeiro", "Financeiro", "/financeiro", "Para cuidar deste caso com segurança, encaminhei sua solicitação ao nosso time Financeiro.", 57),
+                    ("Orientação para troca", "Trocas", "/troca", "Vou ajudar com a troca. Por favor, envie uma foto do produto e informe o número do pedido.", 46),
+                    ("Atendimento fora do horário", "Atendimento", "/horario", "Nossa equipe humana retorna às 8h. A IA continuará registrando suas informações por aqui.", 39),
+                    ("Agradecimento final", "Encerramento", "/obrigado", "Fico feliz em ajudar! Se precisar de mais alguma coisa, conte com a gente.", 71),
                 ],
             )
 
@@ -578,6 +598,46 @@ def update_notification(notification_id):
     item = dict(updated)
     item["read"] = bool(item["read"])
     return jsonify(item)
+
+
+@app.get("/api/quick-replies")
+def list_quick_replies():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM quick_replies ORDER BY id").fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
+@app.post("/api/quick-replies")
+def create_quick_reply():
+    data = request.json or {}
+    title = data.get("title", "").strip()
+    category = data.get("category", "").strip()
+    shortcut = data.get("shortcut", "").strip().lower()
+    message = data.get("message", "").strip()
+    if not title or not category or not shortcut or not message:
+        return {"error": "Preencha nome, categoria, atalho e mensagem."}, 400
+    if not shortcut.startswith("/"):
+        shortcut = f"/{shortcut}"
+    try:
+        with database_connection() as database:
+            cursor = database.execute(
+                "INSERT INTO quick_replies (title, category, shortcut, message) VALUES (?, ?, ?, ?)",
+                (title, category, shortcut, message),
+            )
+            created = database.execute("SELECT * FROM quick_replies WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    except sqlite3.IntegrityError:
+        return {"error": "Este atalho já está em uso."}, 409
+    return jsonify(dict(created)), 201
+
+
+@app.patch("/api/quick-replies/<int:reply_id>/use")
+def register_quick_reply_use(reply_id):
+    with database_connection() as database:
+        cursor = database.execute("UPDATE quick_replies SET uses = uses + 1 WHERE id = ?", (reply_id,))
+        if cursor.rowcount == 0:
+            return {"error": "Resposta rápida não encontrada."}, 404
+        updated = database.execute("SELECT * FROM quick_replies WHERE id = ?", (reply_id,)).fetchone()
+    return jsonify(dict(updated))
 
 
 @app.get("/api/reports/summary")
