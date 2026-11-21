@@ -155,6 +155,35 @@ nav button.active svg { color: #a991ff; }
 .customers-empty { min-height: 230px; display: grid; place-items: center; align-content: center; gap: 8px; color: #98a2b3; }
 .customers-empty b { color: #475467; }
 .customers-empty span { font-size: .8rem; }
+.capacity-page { padding: 20px 28px 28px; }
+.capacity-hero { min-height: 92px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #173a4a, #287783); }
+.capacity-hero > div { display: flex; align-items: center; gap: 13px; }
+.capacity-hero > div > span { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 11px; color: #dbf7f6; background: rgba(255,255,255,.13); }
+.capacity-hero h2 { margin: 0; font: 700 1.15rem 'Manrope'; }
+.capacity-hero p { margin: 5px 0 0; color: #d3edef; font-size: .875rem; }
+.capacity-hero > span { display: flex; align-items: center; gap: 7px; margin-left: auto; padding: 7px 10px; border-radius: 18px; color: #e5fbf7; background: rgba(255,255,255,.12); font-size: .78rem; font-weight: 700; }
+.capacity-layout { display: grid; grid-template-columns: .85fr 1.15fr; gap: 15px; align-items: stretch; }
+.capacity-form-card, .capacity-result-card, .capacity-history { overflow: hidden; border: 1px solid #e1e6ed; border-radius: 13px; background: white; }
+.capacity-form-card, .capacity-result-card { min-height: 450px; padding: 20px; }
+.capacity-form-card > header, .capacity-result-card > header, .capacity-history > header { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid #edf0f4; }
+.capacity-form-card h3, .capacity-result-card h3, .capacity-history h3 { margin: 0; font: 700 1rem 'Manrope'; }
+.capacity-form-card header p, .capacity-result-card header p, .capacity-history header p { margin: 4px 0 0; color: #7a8597; font-size: .82rem; }
+.capacity-presets { display: flex; gap: 7px; margin: 16px 0; flex-wrap: wrap; }
+.capacity-presets button { min-height: 33px; padding: 0 10px; border: 1px solid #d9dee7; border-radius: 7px; color: #5e46bb; background: #f8f6ff; font-size: .74rem; font-weight: 700; }
+.capacity-form-card > label { position: relative; display: block; margin: 14px 0; color: #344054; font-size: .82rem; font-weight: 700; }
+.capacity-form-card input { width: 100%; height: 42px; margin-top: 6px; padding: 0 12px; border: 1px solid #d9dee7; border-radius: 8px; color: #344054; outline: 0; }
+.capacity-form-card input:focus { border-color: #3b909a; box-shadow: 0 0 0 3px #e1f4f4; }
+.capacity-form-card label small { position: absolute; right: 11px; bottom: 13px; color: #98a2b3; font-size: .7rem; font-weight: 500; }
+.calculate-capacity { width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 18px; border: 0; border-radius: 8px; color: white; background: #277984; font-size: .875rem; font-weight: 700; }
+.capacity-result-card > header > span { margin-left: auto; padding: 5px 8px; border-radius: 12px; font-size: .72rem; font-weight: 700; }
+.capacity-result-card.healthy > header > span { color: #21855a; background: #e2f6ec; }.capacity-result-card.attention > header > span { color: #b86622; background: #fff0e3; }.capacity-result-card.critical > header > span { color: #c64148; background: #fde9ea; }
+.capacity-empty { min-height: 340px; display: grid; place-items: center; align-content: center; gap: 8px; color: #98a2b3; text-align: center; }.capacity-empty b { color: #475467; }.capacity-empty p { margin: 0; font-size: .82rem; }
+.capacity-result { padding-top: 20px; }
+.capacity-main-number { padding: 19px; border-radius: 11px; color: white; background: linear-gradient(120deg, #246976, #32909a); }
+.capacity-main-number small, .capacity-main-number strong { display: block; }.capacity-main-number small { color: #d7eff1; font-size: .78rem; }.capacity-main-number strong { margin-top: 5px; font: 800 2rem 'Manrope'; }.capacity-main-number p { margin: 4px 0 0; color: #d7eff1; font-size: .78rem; }
+.capacity-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }.capacity-metrics span { padding: 13px; border-radius: 9px; background: #f8f9fb; }.capacity-metrics small, .capacity-metrics b { display: block; }.capacity-metrics small { color: #7a8597; font-size: .72rem; }.capacity-metrics b { margin-top: 5px; color: #344054; font-size: .9rem; }
+.capacity-recommendation { display: flex; align-items: flex-start; gap: 10px; padding: 14px; border: 1px solid #dfd8f8; border-radius: 9px; color: #6748cc; background: #f8f6ff; }.capacity-recommendation svg { flex: 0 0 auto; }.capacity-recommendation b { color: #4e379c; font-size: .84rem; }.capacity-recommendation p { margin: 4px 0 0; color: #667085; font-size: .8rem; line-height: 1.5; }
+.capacity-history { margin-top: 15px; }.capacity-history > header { padding: 17px 20px; }.capacity-history > header > span { margin-left: auto; color: #7a8597; font-size: .78rem; }.capacity-history-list > div { display: grid; grid-template-columns: 24px 1.2fr 1fr 1fr; gap: 10px; align-items: center; min-height: 55px; padding: 0 20px; border-top: 1px solid #edf0f4; font-size: .8rem; }.capacity-history-status { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; }.capacity-history-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }.capacity-history-status.healthy { color: #21855a; background: #e2f6ec; }.capacity-history-status.attention { color: #b86622; background: #fff0e3; }.capacity-history-status.critical { color: #c64148; background: #fde9ea; }.capacity-history-list b { color: #344054; }.capacity-history-list span { color: #7a8597; }.capacity-history-list strong { color: #277984; text-align: right; }.capacity-history-empty { padding: 28px; color: #98a2b3; font-size: .82rem; text-align: center; }
 .quick-replies-page { padding: 20px 28px 28px; }
 .quick-replies-hero { min-height: 92px; display: flex; align-items: center; padding: 18px 20px; margin-bottom: 15px; border-radius: 14px; color: white; background: linear-gradient(120deg, #202849, #5954a4); }
 .quick-replies-hero > div { display: flex; align-items: center; gap: 13px; }
@@ -584,6 +613,12 @@ nav button.active svg { color: #a991ff; }
 }
 
 @media (max-width: 760px) {
+  .capacity-page { padding: 14px 16px 24px; }
+  .capacity-hero { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .capacity-hero > span { margin-left: 0; }
+  .capacity-layout { grid-template-columns: 1fr; }
+  .capacity-form-card, .capacity-result-card { min-height: auto; }
+  .capacity-history-list > div { grid-template-columns: 24px 1fr; padding: 12px 16px; }.capacity-history-list strong { text-align: left; grid-column: 2; }
   .quick-replies-page { padding: 14px 16px 24px; }
   .quick-replies-hero { align-items: flex-start; flex-direction: column; gap: 16px; }
   .quick-replies-hero > button { width: 100%; margin-left: 0; justify-content: center; }

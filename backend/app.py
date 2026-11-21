@@ -286,6 +286,32 @@ def classify_message(text):
     return {"status": "ia", "mood": "Neutro", "topic": "Dúvida geral", "confidence": 68, "reply": "Recebi sua mensagem. Vou buscar a informação correta para ajudar você."}
 
 
+def calculate_capacity(waiting, agents, duration):
+    total_work = waiting * duration
+    estimated_wait = -(-total_work // agents)
+    load_per_agent = round(waiting / agents, 1)
+    if estimated_wait <= 10:
+        status = "healthy"
+        label = "Capacidade equilibrada"
+        recommendation = "A equipe atual consegue absorver a fila dentro de um prazo saudável."
+    elif estimated_wait <= 25:
+        status = "attention"
+        label = "Atenção à fila"
+        recommendation = "Redistribua casos ou acompanhe a espera antes que o prazo seja ultrapassado."
+    else:
+        status = "critical"
+        label = "Reforço necessário"
+        recommendation = "Acione mais atendentes ou priorize os casos com maior tempo de espera."
+    return {
+        "estimated_wait": estimated_wait,
+        "load_per_agent": load_per_agent,
+        "total_work": total_work,
+        "status": status,
+        "label": label,
+        "recommendation": recommendation,
+    }
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "nexa-api"}
@@ -306,6 +332,24 @@ def simulate_ai_response():
         "channel": channel,
         "action": "Transferir para uma pessoa" if result["status"] == "urgente" else "Responder automaticamente",
     }
+
+
+@app.post("/api/capacity/calculate")
+def calculate_queue_capacity():
+    data = request.json or {}
+    try:
+        waiting = int(data.get("waiting", 0))
+        agents = int(data.get("agents", 0))
+        duration = int(data.get("duration", 0))
+    except (TypeError, ValueError):
+        return {"error": "Informe números inteiros nos três campos."}, 400
+    if waiting < 0 or waiting > 500:
+        return {"error": "A quantidade de clientes precisa ficar entre 0 e 500."}, 400
+    if agents < 1 or agents > 100:
+        return {"error": "A quantidade de atendentes precisa ficar entre 1 e 100."}, 400
+    if duration < 1 or duration > 240:
+        return {"error": "A duração precisa ficar entre 1 e 240 minutos."}, 400
+    return calculate_capacity(waiting, agents, duration)
 
 
 @app.get("/api/settings")

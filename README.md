@@ -21,6 +21,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - avaliações dos clientes com filtros, respostas e acompanhamento de notas baixas;
 - central de notificações com avisos, atalhos e controle de leitura;
 - respostas rápidas com categorias, atalhos e contador de uso;
+- calculadora de capacidade com tempo previsto e recomendação operacional;
 - regras de automação com condições, ações e ativação individual;
 - painel de integrações para WhatsApp, e-mail e Telegram;
 - ambiente de teste para classificação, resposta e transferência da IA;
