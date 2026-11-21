@@ -42,6 +42,32 @@ nav button.active svg { color: #a991ff; }
 .availability { height: 38px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #dfe4ea; border-radius: 8px; color: #344054; font-size: 13px; }
 .icon-button, .menu-button { position: relative; width: 38px; height: 38px; border: 1px solid #e1e5ea; border-radius: 8px; background: white; color: #475467; display: grid; place-items: center; }
 .icon-button i { position: absolute; width: 7px; height: 7px; background: #ef5b5b; border: 2px solid white; border-radius: 50%; top: 7px; right: 7px; }
+.icon-button.active { color: #6748cc; border-color: #cfc3f7; background: #f4f0ff; }
+.notifications-area { position: relative; z-index: 61; }
+.notifications-scrim { position: fixed; inset: 0; z-index: 60; border: 0; background: transparent; cursor: default; }
+.notifications-popover { position: absolute; z-index: 62; top: 48px; right: -48px; width: min(390px, calc(100vw - 24px)); overflow: hidden; border: 1px solid #dde2ea; border-radius: 13px; background: white; box-shadow: 0 20px 50px rgba(16,24,40,.2); }
+.notifications-popover > header { display: flex; align-items: flex-start; gap: 12px; padding: 17px 18px; border-bottom: 1px solid #edf0f4; }
+.notifications-popover h2 { margin: 0; color: #182230; font: 700 1rem 'Manrope'; }
+.notifications-popover header p { margin: 4px 0 0; color: #7a8597; font-size: .78rem; }
+.notifications-popover header button { margin-left: auto; padding: 4px 0; border: 0; color: #6748cc; background: transparent; font-size: .75rem; font-weight: 700; }
+.notifications-popover header button:disabled { color: #aeb5c1; cursor: default; }
+.notifications-list { max-height: 390px; overflow-y: auto; }
+.notification-item { position: relative; width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr) 8px; gap: 11px; align-items: start; padding: 14px 16px; border: 0; border-bottom: 1px solid #edf0f4; color: inherit; background: #fbfaff; text-align: left; }
+.notification-item:hover { background: #f5f2ff; }
+.notification-item.read { background: white; }
+.notification-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; }
+.notification-icon.queue { color: #c76f20; background: #fff0e3; }
+.notification-icon.review { color: #d38a1d; background: #fff5d9; }
+.notification-icon.ticket { color: #6b4dcc; background: #eee9ff; }
+.notification-icon.integration { color: #21855a; background: #e2f6ec; }
+.notification-copy { min-width: 0; }
+.notification-copy b, .notification-copy span, .notification-copy small { display: block; }
+.notification-copy b { color: #273444; font-size: .84rem; }
+.notification-copy span { margin-top: 3px; color: #667085; font-size: .78rem; line-height: 1.4; }
+.notification-copy small { margin-top: 6px; color: #98a2b3; font-size: .7rem; }
+.notification-item > i { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #7658df; }
+.notifications-popover > footer { display: flex; align-items: center; gap: 7px; padding: 11px 16px; color: #7a8597; background: #f8f9fb; font-size: .75rem; }
+.notifications-popover > footer svg { color: #6748cc; }
 .top-avatar { width: 38px; height: 38px; font-size: 13px; }
 .menu-button { display: none; margin-right: 12px; }
 .stats-grid { padding: 20px 28px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
@@ -588,3 +614,4 @@ nav button.active svg { color: #a991ff; }
 @media (max-width: 1100px) { .ticket-table-head { display: none; }.ticket-row { grid-template-columns: 1fr 1fr; padding: 14px 18px; gap: 10px 18px; }.ticket-row > div:first-child { grid-column: 1 / -1; }.reports-grid { grid-template-columns: 1fr; } }
 @media (max-width: 980px) { .sidebar { transform: translateX(-100%); transition: transform .25s; }.sidebar.open { transform: translateX(0); }.mobile-close { display: grid; }.sidebar-overlay { display: block; position: fixed; inset: 0; z-index: 15; border: 0; background: rgba(16,24,40,.45); }.main { margin-left: 0; width: 100%; }.menu-button { display: grid; }.stats-grid, .report-stats { grid-template-columns: repeat(2, 1fr); }.inbox-layout { height: calc(100vh - 88px - 246px); } }
 @media (max-width: 720px) { .topbar { padding: 0 16px; }.topbar p, .availability, .top-avatar { display: none; }.stats-grid { padding: 14px 16px; gap: 9px; }.stat-card { min-height: 92px; padding: 12px; }.stat-card small { display: none; }.inbox-layout { margin: 0 16px 16px; height: auto; min-height: calc(100vh - 315px); grid-template-columns: 1fr; }.conversation-list { min-height: 550px; border-right: 0; }.chat { display: none; min-height: 610px; }.inbox-layout.mobile-chat .conversation-list { display: none; }.inbox-layout.mobile-chat .chat { display: flex; }.chat-back { display: grid; place-items: center; }.header-actions button span { display: none; }.messages { padding: 16px 13px; }.message-row > div { max-width: 84%; }.tickets-page, .reports-page { padding: 14px 16px; }.tickets-summary, .report-stats { grid-template-columns: 1fr; gap: 9px; }.tickets-summary article { min-height: 76px; }.ticket-panel > header { align-items: flex-start; }.secondary-action { padding: 0 9px; font-size: 0; }.secondary-action svg { width: 18px; }.ticket-toolbar { align-items: stretch; flex-direction: column; }.ticket-toolbar label { width: 100%; margin-left: 0; }.ticket-row { grid-template-columns: 1fr; }.ticket-row > div:first-child { grid-column: auto; }.reports-controls { align-items: flex-start; flex-direction: column; gap: 12px; }.reports-controls label { margin-left: 0; }.report-card { padding: 16px; }.channel-content { flex-direction: column; gap: 10px; padding-top: 20px; }.bar-chart { gap: 5px; }.bar-track { width: 75%; } }
+@media (max-width: 520px) { .notifications-popover { position: fixed; top: 76px; right: 12px; left: 12px; width: auto; }.notifications-popover > header { align-items: stretch; flex-direction: column; }.notifications-popover header button { margin-left: 0; text-align: left; } }

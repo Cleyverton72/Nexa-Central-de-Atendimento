@@ -122,6 +122,13 @@ const seedReviews = [
   { id: 5, customer: "Beatriz Souza", initials: "BS", rating: 5, channel: "email", topic: "Atendimento", comment: "Resolveram minha dúvida com muita atenção. Obrigada!", date: "Hoje, 10:18", replied: true, response: "Obrigada pelo carinho, Beatriz! Conte com a gente." }
 ];
 
+const seedNotifications = [
+  { id: 1, title: "Financeiro ultrapassou o prazo", detail: "Há 3 clientes aguardando atendimento humano.", time: "Agora", type: "queue", target: "queues", read: false },
+  { id: 2, title: "Nova avaliação de 2 estrelas", detail: "Rafael ainda está preocupado com uma cobrança.", time: "Há 6 min", type: "review", target: "reviews", read: false },
+  { id: 3, title: "Ticket urgente criado", detail: "O ticket #1042 precisa do time Financeiro.", time: "Há 12 min", type: "ticket", target: "tickets", read: false },
+  { id: 4, title: "E-mail sincronizado", detail: "41 mensagens foram processadas hoje.", time: "Há 24 min", type: "integration", target: "integrations", read: true }
+];
+
 const statusLabel = {
   ia: ["IA respondendo", "violet"], urgente: ["Urgente", "red"],
   humano: ["Com atendente", "blue"], resolvido: ["Resolvido", "green"]
@@ -276,6 +283,17 @@ function CustomersPage({ customers, onOpenConversation }) {
   return <section className="customers-page"><div className="customer-summary"><StatCard icon={UsersRound} label="Clientes cadastrados" value={profiles.length} detail="Base ativa da central" tone="purple" /><StatCard icon={Activity} label="Clientes fiéis" value={loyalCount} detail="4 ou mais pedidos" tone="teal" /><StatCard icon={TicketCheck} label="Média de pedidos" value={averageOrders} detail="por cliente" tone="orange" /></div><div className="customers-panel"><header><div><h2>Base de clientes</h2><p>Consulte contatos e abra o histórico de atendimento.</p></div></header><div className="customers-toolbar"><label><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome, e-mail ou telefone..." /></label><select value={segment} onChange={event => setSegment(event.target.value)} aria-label="Filtrar por segmento"><option value="todos">Todos os segmentos</option><option>Fiel</option><option>Recorrente</option><option>Novo</option></select></div><div className="customers-table"><div className="customers-table-head"><span>Cliente</span><span>Canal preferido</span><span>Segmento</span><span>Pedidos</span><span>Satisfação</span><span>Histórico</span></div>{visible.map(customer => <article className="customer-row" key={customer.id}><div className="customer-identity"><span className="avatar">{customer.initials}</span><div><b>{customer.name}</b><small>{customer.email}</small><small>{customer.phone}</small></div></div><span><ChannelBadge channel={customer.channel} /></span><span><em className={`customer-segment ${customer.segment.toLowerCase()}`}>{customer.segment}</em><small className="customer-since">Desde {customer.since}</small></span><strong>{customer.orders}</strong><span className="customer-rating"><b>★ {customer.satisfaction}</b><small>{customer.mood}</small></span><button className="history-button" onClick={() => onOpenConversation(customer.id)}><MessageCircle size={15} />Abrir conversa</button></article>)}{visible.length === 0 && <div className="customers-empty"><Search size={26} /><b>Nenhum cliente encontrado</b><span>Tente outro nome ou segmento.</span></div>}</div></div></section>;
 }
 
+function NotificationsPanel({ notifications, onRead, onReadAll, onNavigate, onClose }) {
+  const meta = {
+    queue: { icon: Headphones, className: "queue" },
+    review: { icon: Star, className: "review" },
+    ticket: { icon: TicketCheck, className: "ticket" },
+    integration: { icon: Cable, className: "integration" }
+  };
+  const unread = notifications.filter(item => !item.read).length;
+  return <><button className="notifications-scrim" onClick={onClose} aria-label="Fechar notificações" /><aside className="notifications-popover" aria-label="Central de notificações"><header><div><h2>Notificações</h2><p>{unread ? `${unread} avisos não lidos` : "Tudo lido por aqui"}</p></div><button onClick={onReadAll} disabled={!unread}>Marcar tudo como lido</button></header><div className="notifications-list">{notifications.map(item => { const config = meta[item.type]; const Icon = config.icon; return <button className={`notification-item ${item.read ? "read" : ""}`} key={item.id} onClick={() => { onRead(item.id); onNavigate(item.target); }}><span className={`notification-icon ${config.className}`}><Icon size={18} /></span><span className="notification-copy"><b>{item.title}</b><span>{item.detail}</span><small>{item.time}</small></span>{!item.read && <i aria-label="Não lida" />}</button>; })}</div><footer><ShieldCheck size={16} /><span>Os avisos ficam registrados na auditoria.</span></footer></aside></>;
+}
+
 function ReviewsPage({ reviews, onReply }) {
   const [query, setQuery] = useState("");
   const [rating, setRating] = useState("todos");
@@ -418,6 +436,7 @@ function App() {
   const [integrations, setIntegrations] = useState(seedIntegrations);
   const [supportQueues, setSupportQueues] = useState(seedSupportQueues);
   const [reviews, setReviews] = useState(seedReviews);
+  const [notifications, setNotifications] = useState(seedNotifications);
   const [selectedId, setSelectedId] = useState(1);
   const [filter, setFilter] = useState("todos");
   const [search, setSearch] = useState("");
@@ -427,6 +446,7 @@ function App() {
   const [toast, setToast] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileChat, setMobileChat] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
@@ -459,6 +479,9 @@ function App() {
   const redistributeQueue = id => { setSupportQueues(items => items.map(queue => queue.id === id ? { ...queue, waiting: Math.max(queue.waiting - 1, 0), oldest: Math.max(queue.oldest - 2, 0) } : queue)); setToast("Um caso foi redistribuído para outro atendente."); };
   const changeQueueSla = (id, sla) => { setSupportQueues(items => items.map(queue => { if (queue.id !== id) return queue; const ratio = queue.oldest / sla; return { ...queue, sla, status: ratio <= 1 ? "healthy" : ratio <= 2 ? "attention" : "critical" }; })); setToast("Prazo de atendimento atualizado."); };
   const replyReview = (id, response) => { setReviews(items => items.map(review => review.id === id ? { ...review, replied: true, response } : review)); setToast("Resposta enviada para o cliente."); };
+  const readNotification = id => setNotifications(items => items.map(item => item.id === id ? { ...item, read: true } : item));
+  const readAllNotifications = () => { setNotifications(items => items.map(item => ({ ...item, read: true }))); setToast("Todas as notificações foram marcadas como lidas."); };
+  const navigateFromNotification = target => { setActiveView(target); setNotificationsOpen(false); };
   const receiveIncoming = async draft => {
     const fallback = () => {
       const result = classifyIncoming(draft.message);
@@ -482,12 +505,13 @@ function App() {
   const viewTitle = activeView === "dashboard" ? "Visão geral" : activeView === "tickets" ? "Gestão de tickets" : activeView === "customers" ? "Clientes" : activeView === "knowledge" ? "Base de conhecimento" : activeView === "ai-test" ? "Teste da IA" : activeView === "automations" ? "Automações" : activeView === "integrations" ? "Integrações" : activeView === "team" ? "Equipe" : activeView === "queues" ? "Filas humanas" : activeView === "reviews" ? "Avaliações" : activeView === "audit" ? "Auditoria" : activeView === "reports" ? "Relatórios" : activeView === "settings" ? "Configurações" : "Central de atendimento";
   const viewDescription = activeView === "dashboard" ? "Acompanhe tudo o que está acontecendo na sua operação." : activeView === "tickets" ? "Organize prioridades e acompanhe a solução dos chamados." : activeView === "customers" ? "Conheça o histórico e o perfil de cada cliente." : activeView === "knowledge" ? "Organize as informações usadas nas respostas da IA." : activeView === "ai-test" ? "Experimente mensagens e acompanhe as decisões do agente." : activeView === "automations" ? "Crie regras para a central agir no momento certo." : activeView === "integrations" ? "Conecte WhatsApp, e-mail e Telegram à central." : activeView === "team" ? "Acompanhe disponibilidade e desempenho dos atendentes." : activeView === "queues" ? "Acompanhe espera, capacidade e prazos da equipe humana." : activeView === "reviews" ? "Leia os comentários e acompanhe a satisfação dos clientes." : activeView === "audit" ? "Consulte as ações realizadas pela IA, equipe e sistema." : activeView === "reports" ? "Acompanhe resultados e encontre oportunidades de melhoria." : activeView === "settings" ? "Controle canais, automações e horários da sua operação." : "Acompanhe e gerencie todos os canais em um só lugar.";
   const openCustomerConversation = id => { setSelectedId(id); setActiveView("conversations"); setMobileChat(true); };
+  const unreadNotifications = notifications.filter(item => !item.read).length;
 
   return <div className="app-shell">
     <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} activeView={activeView} onViewChange={setActiveView} />
     {menuOpen && <button className="sidebar-overlay" onClick={() => setMenuOpen(false)} aria-label="Fechar menu" />}
     <main className="main">
-      <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Abrir menu"><Menu /></button><div><h1>{viewTitle}</h1><p>{viewDescription}</p></div><div className="top-actions"><button className="availability"><i />Disponível<ChevronDown size={15} /></button><button className="icon-button" aria-label="Notificações"><Bell size={20} /><i /></button><span className="top-avatar">AS</span></div></header>
+      <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)} aria-label="Abrir menu"><Menu /></button><div><h1>{viewTitle}</h1><p>{viewDescription}</p></div><div className="top-actions"><button className="availability"><i />Disponível<ChevronDown size={15} /></button><div className="notifications-area"><button className={`icon-button ${notificationsOpen ? "active" : ""}`} aria-label={`Notificações, ${unreadNotifications} não lidas`} aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(open => !open)}><Bell size={20} />{unreadNotifications > 0 && <i />}</button>{notificationsOpen && <NotificationsPanel notifications={notifications} onRead={readNotification} onReadAll={readAllNotifications} onNavigate={navigateFromNotification} onClose={() => setNotificationsOpen(false)} />}</div><span className="top-avatar">AS</span></div></header>
       {activeView === "dashboard" ? <DashboardPage conversations={conversations} tickets={tickets} onOpenConversation={openCustomerConversation} onOpenTickets={() => setActiveView("tickets")} onOpenConversations={() => setActiveView("conversations")} /> : activeView === "conversations" ? <><section className="stats-grid"><StatCard icon={MessageCircle} label="Atendimentos hoje" value="148" detail="↑ 12% vs. ontem" tone="purple" /><StatCard icon={Bot} label="Resolvidos pela IA" value="87%" detail="129 conversas" tone="teal" /><StatCard icon={UsersRound} label="Na fila humana" value="12" detail="3 aguardando há +5 min" tone="orange" /><StatCard icon={Clock3} label="Tempo médio" value="2m 14s" detail="↓ 18s esta semana" tone="blue" /></section><section className={`inbox-layout ${mobileChat ? "mobile-chat" : ""}`}><ConversationList conversations={visible} selectedId={selectedId} onSelect={id => { setSelectedId(id); setMobileChat(true); }} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} onNew={() => setIncomingOpen(true)} /><Chat conversation={selected} onSend={sendMessage} onTransfer={transfer} onTicket={() => setTicketOpen(true)} transferred={transferred.includes(selectedId)} onBack={() => setMobileChat(false)} /><CustomerPanel conversation={selected} /></section></> : activeView === "tickets" ? <TicketBoard tickets={tickets} onResolve={resolveTicket} onBack={() => setActiveView("conversations")} /> : activeView === "customers" ? <CustomersPage customers={conversations} onOpenConversation={openCustomerConversation} /> : activeView === "knowledge" ? <KnowledgePage articles={articles} onAdd={addArticle} onToggle={toggleArticle} /> : activeView === "ai-test" ? <AiTestPage /> : activeView === "automations" ? <AutomationsPage rules={automationRules} onAdd={addAutomationRule} onToggle={toggleAutomationRule} /> : activeView === "integrations" ? <IntegrationsPage integrations={integrations} onConnect={connectIntegration} onDisconnect={disconnectIntegration} /> : activeView === "team" ? <TeamPage agents={agents} onAdd={addAgent} onStatusChange={changeAgentStatus} /> : activeView === "queues" ? <QueuesPage queues={supportQueues} onRedistribute={redistributeQueue} onSlaChange={changeQueueSla} /> : activeView === "reviews" ? <ReviewsPage reviews={reviews} onReply={replyReview} /> : activeView === "audit" ? <AuditPage /> : activeView === "settings" ? <SettingsPage onSaved={() => setToast("Configurações salvas com sucesso.")} /> : <ReportsPage />}
     </main>
     {ticketOpen && <TicketModal conversation={selected} onClose={() => setTicketOpen(false)} onCreate={createTicket} />}

@@ -130,6 +130,15 @@ def prepare_database():
                 replied INTEGER NOT NULL DEFAULT 0,
                 response TEXT NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS app_notifications (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                time_text TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                target TEXT NOT NULL,
+                read INTEGER NOT NULL DEFAULT 0
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -225,6 +234,17 @@ def prepare_database():
                     (3, "Camila Oliveira", "CO", 5, "telegram", "Conta", "Encontrei onde trocar o plano e deu tudo certo.", "Hoje, 10:31", 1, "Ficamos felizes com o resultado, Camila!"),
                     (4, "João Pedro", "JP", 3, "whatsapp", "Trocas", "O atendimento foi educado, mas ainda aguardo a troca do produto.", "Hoje, 10:26", 0, ""),
                     (5, "Beatriz Souza", "BS", 5, "email", "Atendimento", "Resolveram minha dúvida com muita atenção. Obrigada!", "Hoje, 10:18", 1, "Obrigada pelo carinho, Beatriz! Conte com a gente."),
+                ],
+            )
+        notification_count = database.execute("SELECT COUNT(*) FROM app_notifications").fetchone()[0]
+        if notification_count == 0:
+            database.executemany(
+                "INSERT INTO app_notifications (id, title, detail, time_text, event_type, target, read) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, "Financeiro ultrapassou o prazo", "Há 3 clientes aguardando atendimento humano.", "Agora", "queue", "queues", 0),
+                    (2, "Nova avaliação de 2 estrelas", "Rafael ainda está preocupado com uma cobrança.", "Há 6 min", "review", "reviews", 0),
+                    (3, "Ticket urgente criado", "O ticket #1042 precisa do time Financeiro.", "Há 12 min", "ticket", "tickets", 0),
+                    (4, "E-mail sincronizado", "41 mensagens foram processadas hoje.", "Há 24 min", "integration", "integrations", 1),
                 ],
             )
 
@@ -528,6 +548,35 @@ def reply_customer_review(review_id):
         updated = database.execute("SELECT * FROM customer_reviews WHERE id = ?", (review_id,)).fetchone()
     item = dict(updated)
     item["replied"] = bool(item["replied"])
+    return jsonify(item)
+
+
+@app.get("/api/notifications")
+def list_notifications():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM app_notifications ORDER BY id").fetchall()
+    return jsonify([{**dict(row), "read": bool(row["read"])} for row in rows])
+
+
+@app.patch("/api/notifications/read-all")
+def read_all_notifications():
+    with database_connection() as database:
+        database.execute("UPDATE app_notifications SET read = 1")
+    return {"updated": True}
+
+
+@app.patch("/api/notifications/<int:notification_id>")
+def update_notification(notification_id):
+    read = (request.json or {}).get("read")
+    if not isinstance(read, bool):
+        return {"error": "O campo read precisa ser verdadeiro ou falso."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE app_notifications SET read = ? WHERE id = ?", (int(read), notification_id))
+        if cursor.rowcount == 0:
+            return {"error": "Notificação não encontrada."}, 404
+        updated = database.execute("SELECT * FROM app_notifications WHERE id = ?", (notification_id,)).fetchone()
+    item = dict(updated)
+    item["read"] = bool(item["read"])
     return jsonify(item)
 
 
