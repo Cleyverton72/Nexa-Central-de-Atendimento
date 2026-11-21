@@ -28,6 +28,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - auditoria com pesquisa, filtros, detalhes e exportação CSV;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;
+- simulador multicanal com prévia da classificação, rota e resposta da IA;
 - classificação automática de casos delicados;
 - API Python com banco SQLite para uso local.
 
