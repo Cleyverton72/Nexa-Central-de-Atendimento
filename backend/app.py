@@ -147,6 +147,15 @@ def prepare_database():
                 message TEXT NOT NULL,
                 uses INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS channel_events (
+                id INTEGER PRIMARY KEY,
+                channel TEXT NOT NULL,
+                event TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                status TEXT NOT NULL,
+                time_text TEXT NOT NULL,
+                reference TEXT NOT NULL UNIQUE
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -265,6 +274,18 @@ def prepare_database():
                     ("Orientação para troca", "Trocas", "/troca", "Vou ajudar com a troca. Por favor, envie uma foto do produto e informe o número do pedido.", 46),
                     ("Atendimento fora do horário", "Atendimento", "/horario", "Nossa equipe humana retorna às 8h. A IA continuará registrando suas informações por aqui.", 39),
                     ("Agradecimento final", "Encerramento", "/obrigado", "Fico feliz em ajudar! Se precisar de mais alguma coisa, conte com a gente.", 71),
+                ],
+            )
+        channel_event_count = database.execute("SELECT COUNT(*) FROM channel_events").fetchone()[0]
+        if channel_event_count == 0:
+            database.executemany(
+                "INSERT INTO channel_events (id, channel, event, detail, status, time_text, reference) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, "whatsapp", "Mensagem recebida", "Pedido #4821 enviado por Marina Costa", "success", "Agora", "msg_4821"),
+                    (2, "email", "Caso encaminhado", "Cobrança suspeita enviada ao Financeiro", "success", "Há 4 min", "mail_1042"),
+                    (3, "telegram", "Resposta automática", "Orientação sobre alteração de plano", "success", "Há 9 min", "tg_8831"),
+                    (4, "whatsapp", "Confirmação aguardando", "Provedor ainda processa a entrega da resposta", "processing", "Há 12 min", "msg_4817"),
+                    (5, "telegram", "Falha no envio", "O bot não confirmou o recebimento da mensagem", "failed", "Há 18 min", "tg_8824"),
                 ],
             )
 
@@ -682,6 +703,26 @@ def register_quick_reply_use(reply_id):
             return {"error": "Resposta rápida não encontrada."}, 404
         updated = database.execute("SELECT * FROM quick_replies WHERE id = ?", (reply_id,)).fetchone()
     return jsonify(dict(updated))
+
+
+@app.get("/api/channel-events")
+def list_channel_events():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM channel_events ORDER BY id").fetchall()
+    return jsonify([{**dict(row), "time": row["time_text"]} for row in rows])
+
+
+@app.patch("/api/channel-events/<int:event_id>/retry")
+def retry_channel_event(event_id):
+    with database_connection() as database:
+        cursor = database.execute(
+            "UPDATE channel_events SET event = ?, detail = ?, status = ?, time_text = ? WHERE id = ? AND status = 'failed'",
+            ("Evento reprocessado", "A mensagem foi entregue após uma nova tentativa", "success", "Agora", event_id),
+        )
+        if cursor.rowcount == 0:
+            return {"error": "Evento com falha não encontrado."}, 404
+        updated = database.execute("SELECT * FROM channel_events WHERE id = ?", (event_id,)).fetchone()
+    return jsonify({**dict(updated), "time": updated["time_text"]})
 
 
 @app.get("/api/reports/summary")
