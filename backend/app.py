@@ -173,6 +173,19 @@ def prepare_database():
                 people INTEGER NOT NULL DEFAULT 0,
                 permissions TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS work_shifts (
+                id INTEGER PRIMARY KEY,
+                agent_id INTEGER NOT NULL,
+                agent TEXT NOT NULL,
+                initials TEXT NOT NULL,
+                team TEXT NOT NULL,
+                days TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                break_start TEXT NOT NULL,
+                break_end TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -324,6 +337,17 @@ def prepare_database():
                     ("admin", "Administrador", "Controle completo da central", 1, json.dumps({"conversations": True, "tickets": True, "training": True, "team": True, "reports": True, "settings": True})),
                     ("supervisor", "Supervisor", "Coordena a operação e a equipe", 1, json.dumps({"conversations": True, "tickets": True, "training": True, "team": True, "reports": True, "settings": False})),
                     ("agent", "Atendente", "Cuida das conversas e tickets", 2, json.dumps({"conversations": True, "tickets": True, "training": False, "team": False, "reports": False, "settings": False})),
+                ],
+            )
+        shift_count = database.execute("SELECT COUNT(*) FROM work_shifts").fetchone()[0]
+        if shift_count == 0:
+            database.executemany(
+                "INSERT INTO work_shifts (id, agent_id, agent, initials, team, days, start_time, end_time, break_start, break_end, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, 1, "Ana Silva", "AS", "Geral", json.dumps(["Seg", "Ter", "Qua", "Qui", "Sex"]), "08:00", "17:00", "12:00", "13:00", 1),
+                    (2, 2, "Marcos Santos", "MS", "Financeiro", json.dumps(["Seg", "Ter", "Qua", "Qui", "Sex"]), "09:00", "18:00", "13:00", "14:00", 1),
+                    (3, 3, "Júlia Mendes", "JM", "Entregas", json.dumps(["Ter", "Qua", "Qui", "Sex", "Sáb"]), "10:00", "19:00", "14:00", "15:00", 1),
+                    (4, 4, "Pedro Rocha", "PR", "Trocas", json.dumps(["Seg", "Ter", "Qua", "Qui", "Sex"]), "08:00", "16:00", "11:30", "12:30", 0),
                 ],
             )
 
@@ -741,6 +765,57 @@ def register_quick_reply_use(reply_id):
             return {"error": "Resposta rápida não encontrada."}, 404
         updated = database.execute("SELECT * FROM quick_replies WHERE id = ?", (reply_id,)).fetchone()
     return jsonify(dict(updated))
+
+
+def shift_payload(row):
+    return {
+        "id": row["id"],
+        "agentId": row["agent_id"],
+        "agent": row["agent"],
+        "initials": row["initials"],
+        "team": row["team"],
+        "days": json.loads(row["days"]),
+        "start": row["start_time"],
+        "end": row["end_time"],
+        "breakStart": row["break_start"],
+        "breakEnd": row["break_end"],
+        "active": bool(row["active"]),
+    }
+
+
+@app.get("/api/shifts")
+def list_work_shifts():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM work_shifts ORDER BY start_time, agent").fetchall()
+    return jsonify([shift_payload(row) for row in rows])
+
+
+@app.put("/api/shifts/<int:shift_id>")
+def update_work_shift(shift_id):
+    data = request.json or {}
+    allowed_days = {"Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"}
+    days = data.get("days")
+    active = data.get("active")
+    time_values = [data.get("start"), data.get("breakStart"), data.get("breakEnd"), data.get("end")]
+    if not isinstance(days, list) or not days or len(days) != len(set(days)) or any(day not in allowed_days for day in days):
+        return {"error": "Escolha ao menos um dia válido para a escala."}, 400
+    if not isinstance(active, bool) or not all(isinstance(value, str) for value in time_values):
+        return {"error": "Envie horários e situação válidos."}, 400
+    try:
+        parsed_times = [datetime.strptime(value, "%H:%M") for value in time_values]
+    except ValueError:
+        return {"error": "Use horários no formato HH:MM."}, 400
+    if parsed_times != sorted(parsed_times) or len(set(parsed_times)) != len(parsed_times):
+        return {"error": "A entrada, a pausa e a saída precisam estar em ordem."}, 400
+    with database_connection() as database:
+        cursor = database.execute(
+            "UPDATE work_shifts SET days = ?, start_time = ?, end_time = ?, break_start = ?, break_end = ?, active = ? WHERE id = ?",
+            (json.dumps(days), data["start"], data["end"], data["breakStart"], data["breakEnd"], int(active), shift_id),
+        )
+        if cursor.rowcount == 0:
+            return {"error": "Escala não encontrada."}, 404
+        updated = database.execute("SELECT * FROM work_shifts WHERE id = ?", (shift_id,)).fetchone()
+    return jsonify(shift_payload(updated))
 
 
 @app.get("/api/permissions")
