@@ -166,6 +166,13 @@ def prepare_database():
                 confidence INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending'
             );
+            CREATE TABLE IF NOT EXISTS role_permissions (
+                role_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                people INTEGER NOT NULL DEFAULT 0,
+                permissions TEXT NOT NULL
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -307,6 +314,16 @@ def prepare_database():
                     (2, "email", "Rafael Lima", "Não reconheço esta cobrança.", "Vou encaminhar seu caso ao time Financeiro para uma análise segura.", "Financeiro", 98, "pending"),
                     (3, "telegram", "Camila Oliveira", "Onde altero meu plano?", "Acesse Configurações e escolha a opção Plano.", "Conta", 91, "approved"),
                     (4, "whatsapp", "João Pedro", "O produto veio com defeito.", "Envie uma foto do produto e o número do pedido para iniciarmos a troca.", "Trocas", 88, "revised"),
+                ],
+            )
+        permission_count = database.execute("SELECT COUNT(*) FROM role_permissions").fetchone()[0]
+        if permission_count == 0:
+            database.executemany(
+                "INSERT INTO role_permissions (role_id, name, description, people, permissions) VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("admin", "Administrador", "Controle completo da central", 1, json.dumps({"conversations": True, "tickets": True, "training": True, "team": True, "reports": True, "settings": True})),
+                    ("supervisor", "Supervisor", "Coordena a operação e a equipe", 1, json.dumps({"conversations": True, "tickets": True, "training": True, "team": True, "reports": True, "settings": False})),
+                    ("agent", "Atendente", "Cuida das conversas e tickets", 2, json.dumps({"conversations": True, "tickets": True, "training": False, "team": False, "reports": False, "settings": False})),
                 ],
             )
 
@@ -724,6 +741,26 @@ def register_quick_reply_use(reply_id):
             return {"error": "Resposta rápida não encontrada."}, 404
         updated = database.execute("SELECT * FROM quick_replies WHERE id = ?", (reply_id,)).fetchone()
     return jsonify(dict(updated))
+
+
+@app.get("/api/permissions")
+def list_role_permissions():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM role_permissions ORDER BY CASE role_id WHEN 'admin' THEN 1 WHEN 'supervisor' THEN 2 ELSE 3 END").fetchall()
+    return jsonify([{"id": row["role_id"], "name": row["name"], "description": row["description"], "people": row["people"], "permissions": json.loads(row["permissions"])} for row in rows])
+
+
+@app.put("/api/permissions/<role_id>")
+def update_role_permissions(role_id):
+    allowed_keys = {"conversations", "tickets", "training", "team", "reports", "settings"}
+    permissions = (request.json or {}).get("permissions")
+    if not isinstance(permissions, dict) or set(permissions) != allowed_keys or not all(isinstance(value, bool) for value in permissions.values()):
+        return {"error": "Envie todas as permissões usando verdadeiro ou falso."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE role_permissions SET permissions = ? WHERE role_id = ?", (json.dumps(permissions), role_id))
+        if cursor.rowcount == 0:
+            return {"error": "Função não encontrada."}, 404
+    return {"id": role_id, "permissions": permissions}
 
 
 @app.get("/api/ai-training")
