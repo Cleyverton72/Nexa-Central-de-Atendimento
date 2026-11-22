@@ -156,6 +156,16 @@ def prepare_database():
                 time_text TEXT NOT NULL,
                 reference TEXT NOT NULL UNIQUE
             );
+            CREATE TABLE IF NOT EXISTS ai_training_samples (
+                id INTEGER PRIMARY KEY,
+                channel TEXT NOT NULL,
+                customer TEXT NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                confidence INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending'
+            );
         """)
         ticket_columns = {row["name"] for row in database.execute("PRAGMA table_info(tickets)").fetchall()}
         if "assignee" not in ticket_columns:
@@ -286,6 +296,17 @@ def prepare_database():
                     (3, "telegram", "Resposta automática", "Orientação sobre alteração de plano", "success", "Há 9 min", "tg_8831"),
                     (4, "whatsapp", "Confirmação aguardando", "Provedor ainda processa a entrega da resposta", "processing", "Há 12 min", "msg_4817"),
                     (5, "telegram", "Falha no envio", "O bot não confirmou o recebimento da mensagem", "failed", "Há 18 min", "tg_8824"),
+                ],
+            )
+        training_count = database.execute("SELECT COUNT(*) FROM ai_training_samples").fetchone()[0]
+        if training_count == 0:
+            database.executemany(
+                "INSERT INTO ai_training_samples (id, channel, customer, question, answer, topic, confidence, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (1, "whatsapp", "Marina Costa", "Meu pedido chega hoje?", "Seu pedido saiu para entrega e a previsão é até 18h.", "Entrega", 94, "pending"),
+                    (2, "email", "Rafael Lima", "Não reconheço esta cobrança.", "Vou encaminhar seu caso ao time Financeiro para uma análise segura.", "Financeiro", 98, "pending"),
+                    (3, "telegram", "Camila Oliveira", "Onde altero meu plano?", "Acesse Configurações e escolha a opção Plano.", "Conta", 91, "approved"),
+                    (4, "whatsapp", "João Pedro", "O produto veio com defeito.", "Envie uma foto do produto e o número do pedido para iniciarmos a troca.", "Trocas", 88, "revised"),
                 ],
             )
 
@@ -702,6 +723,33 @@ def register_quick_reply_use(reply_id):
         if cursor.rowcount == 0:
             return {"error": "Resposta rápida não encontrada."}, 404
         updated = database.execute("SELECT * FROM quick_replies WHERE id = ?", (reply_id,)).fetchone()
+    return jsonify(dict(updated))
+
+
+@app.get("/api/ai-training")
+def list_ai_training_samples():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM ai_training_samples ORDER BY id").fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
+@app.patch("/api/ai-training/<int:sample_id>")
+def review_ai_training_sample(sample_id):
+    data = request.json or {}
+    status = data.get("status")
+    answer = data.get("answer", "").strip()
+    if status not in ("approved", "revised"):
+        return {"error": "Situação de revisão inválida."}, 400
+    if not answer:
+        return {"error": "A resposta revisada não pode ficar vazia."}, 400
+    with database_connection() as database:
+        cursor = database.execute(
+            "UPDATE ai_training_samples SET answer = ?, status = ? WHERE id = ?",
+            (answer, status, sample_id),
+        )
+        if cursor.rowcount == 0:
+            return {"error": "Exemplo de treinamento não encontrado."}, 404
+        updated = database.execute("SELECT * FROM ai_training_samples WHERE id = ?", (sample_id,)).fetchone()
     return jsonify(dict(updated))
 
 
