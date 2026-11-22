@@ -25,6 +25,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - calculadora de capacidade com tempo previsto e recomendação operacional;
 - regras de automação com condições, ações e ativação individual;
 - roteamento inteligente por palavras, canal, fila e prioridade;
+- triagem configurável antes da transferência para atendimento humano;
 - painel de integrações para WhatsApp, e-mail e Telegram;
 - ambiente de teste para classificação, resposta e transferência da IA;
 - auditoria com pesquisa, filtros, detalhes e exportação CSV;

@@ -97,6 +97,15 @@ def prepare_database():
                 active INTEGER NOT NULL DEFAULT 1,
                 matches_today INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS triage_fields (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                label TEXT NOT NULL,
+                field_type TEXT NOT NULL,
+                options TEXT NOT NULL DEFAULT '[]',
+                required INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1,
+                position INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS channel_integrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 channel TEXT NOT NULL UNIQUE,
@@ -257,6 +266,17 @@ def prepare_database():
                     ("Pedido e rastreio", json.dumps(["pedido", "entrega", "rastreio"]), "Todos os canais", "Entregas", "Média", 1, 34),
                     ("Produto com defeito", json.dumps(["defeito", "troca", "devolução"]), "WhatsApp", "Trocas", "Alta", 1, 12),
                     ("Dúvidas sobre plano", json.dumps(["plano", "assinatura", "mensalidade"]), "E-mail", "Fila geral", "Baixa", 0, 9),
+                ],
+            )
+        triage_count = database.execute("SELECT COUNT(*) FROM triage_fields").fetchone()[0]
+        if triage_count == 0:
+            database.executemany(
+                "INSERT INTO triage_fields (label, field_type, options, required, active, position) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    ("Número do pedido", "Texto curto", "[]", 1, 1, 1),
+                    ("Assunto do atendimento", "Lista de opções", json.dumps(["Cobrança", "Entrega", "Troca", "Outro"]), 1, 1, 2),
+                    ("Descreva o que aconteceu", "Texto longo", "[]", 1, 1, 3),
+                    ("Melhor horário para contato", "Horário", "[]", 0, 1, 4),
                 ],
             )
         integration_count = database.execute("SELECT COUNT(*) FROM channel_integrations").fetchone()[0]
@@ -679,6 +699,65 @@ def simulate_routing():
                 database.execute("UPDATE routing_rules SET matches_today = matches_today + 1 WHERE id = ?", (row["id"],))
                 return {"ruleId": row["id"], "rule": row["name"], "queue": row["queue"], "priority": row["priority"], "matched": True}
     return {"ruleId": None, "rule": "Regra padrão", "queue": "Fila geral", "priority": "Média", "matched": False}
+
+
+def triage_field_payload(row):
+    return {
+        "id": row["id"],
+        "label": row["label"],
+        "type": row["field_type"],
+        "options": json.loads(row["options"]),
+        "required": bool(row["required"]),
+        "active": bool(row["active"]),
+        "position": row["position"],
+    }
+
+
+@app.get("/api/triage-fields")
+def list_triage_fields():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM triage_fields ORDER BY position, id").fetchall()
+    return jsonify([triage_field_payload(row) for row in rows])
+
+
+@app.post("/api/triage-fields")
+def create_triage_field():
+    data = request.json or {}
+    label = data.get("label", "").strip()
+    field_type = data.get("type")
+    options = data.get("options", [])
+    required = data.get("required", False)
+    if not label or field_type not in ("Texto curto", "Texto longo", "Lista de opções", "Horário"):
+        return {"error": "Informe uma pergunta e um tipo de resposta válidos."}, 400
+    if not isinstance(required, bool) or not isinstance(options, list) or any(not isinstance(option, str) or not option.strip() for option in options):
+        return {"error": "Opções ou obrigatoriedade inválidas."}, 400
+    if field_type == "Lista de opções" and not options:
+        return {"error": "Adicione ao menos uma opção para a lista."}, 400
+    clean_options = list(dict.fromkeys(option.strip() for option in options)) if field_type == "Lista de opções" else []
+    with database_connection() as database:
+        position = database.execute("SELECT COALESCE(MAX(position), 0) + 1 FROM triage_fields").fetchone()[0]
+        cursor = database.execute(
+            "INSERT INTO triage_fields (label, field_type, options, required, active, position) VALUES (?, ?, ?, ?, 1, ?)",
+            (label, field_type, json.dumps(clean_options), int(required), position),
+        )
+        created = database.execute("SELECT * FROM triage_fields WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return jsonify(triage_field_payload(created)), 201
+
+
+@app.patch("/api/triage-fields/<int:field_id>")
+def update_triage_field(field_id):
+    data = request.json or {}
+    changes = {key: value for key, value in data.items() if key in ("active", "required")}
+    if not changes or len(changes) != len(data) or any(not isinstance(value, bool) for value in changes.values()):
+        return {"error": "Envie active ou required usando verdadeiro ou falso."}, 400
+    assignments = ", ".join(f"{key} = ?" for key in changes)
+    values = [int(value) for value in changes.values()]
+    with database_connection() as database:
+        cursor = database.execute(f"UPDATE triage_fields SET {assignments} WHERE id = ?", (*values, field_id))
+        if cursor.rowcount == 0:
+            return {"error": "Pergunta de triagem não encontrada."}, 404
+        updated = database.execute("SELECT * FROM triage_fields WHERE id = ?", (field_id,)).fetchone()
+    return jsonify(triage_field_payload(updated))
 
 
 @app.get("/api/integrations")
