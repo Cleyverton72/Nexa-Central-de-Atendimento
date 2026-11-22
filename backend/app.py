@@ -87,6 +87,16 @@ def prepare_database():
                 runs INTEGER NOT NULL DEFAULT 0,
                 last_run TEXT NOT NULL DEFAULT 'Ainda não executada'
             );
+            CREATE TABLE IF NOT EXISTS routing_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                keywords TEXT NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'Todos os canais',
+                queue TEXT NOT NULL,
+                priority TEXT NOT NULL DEFAULT 'Média',
+                active INTEGER NOT NULL DEFAULT 1,
+                matches_today INTEGER NOT NULL DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS channel_integrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 channel TEXT NOT NULL UNIQUE,
@@ -236,6 +246,17 @@ def prepare_database():
                     ("Pedido sem atualização", "Cliente pede rastreio e o pedido está atrasado", "Criar ticket de alta prioridade", "WhatsApp", 1, 12, "Há 19 min"),
                     ("Atendimento fora do horário", "Mensagem recebida após as 18h", "Responder com prazo da equipe", "Todos os canais", 1, 27, "Ontem, 22:14"),
                     ("Baixa confiança da IA", "Confiança da resposta menor que 75%", "Transferir para fila humana", "Todos os canais", 0, 9, "18 nov., 15:42"),
+                ],
+            )
+        routing_count = database.execute("SELECT COUNT(*) FROM routing_rules").fetchone()[0]
+        if routing_count == 0:
+            database.executemany(
+                "INSERT INTO routing_rules (name, keywords, channel, queue, priority, active, matches_today) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("Cobrança suspeita", json.dumps(["cobrança", "fraude", "cartão", "estorno"]), "Todos os canais", "Financeiro", "Urgente", 1, 18),
+                    ("Pedido e rastreio", json.dumps(["pedido", "entrega", "rastreio"]), "Todos os canais", "Entregas", "Média", 1, 34),
+                    ("Produto com defeito", json.dumps(["defeito", "troca", "devolução"]), "WhatsApp", "Trocas", "Alta", 1, 12),
+                    ("Dúvidas sobre plano", json.dumps(["plano", "assinatura", "mensalidade"]), "E-mail", "Fila geral", "Baixa", 0, 9),
                 ],
             )
         integration_count = database.execute("SELECT COUNT(*) FROM channel_integrations").fetchone()[0]
@@ -584,6 +605,80 @@ def update_automation_rule(rule_id):
         if cursor.rowcount == 0:
             return {"error": "Regra não encontrada."}, 404
     return {"id": rule_id, "active": active}
+
+
+def routing_payload(row):
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "keywords": json.loads(row["keywords"]),
+        "channel": row["channel"],
+        "queue": row["queue"],
+        "priority": row["priority"],
+        "active": bool(row["active"]),
+        "matches": row["matches_today"],
+    }
+
+
+@app.get("/api/routing")
+def list_routing_rules():
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM routing_rules ORDER BY id").fetchall()
+    return jsonify([routing_payload(row) for row in rows])
+
+
+@app.post("/api/routing")
+def create_routing_rule():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    keywords = data.get("keywords")
+    channel = data.get("channel")
+    queue = data.get("queue")
+    priority = data.get("priority")
+    if not name or not isinstance(keywords, list) or not keywords or any(not isinstance(keyword, str) or not keyword.strip() for keyword in keywords):
+        return {"error": "Informe o nome e ao menos uma palavra da rota."}, 400
+    if channel not in ("Todos os canais", "WhatsApp", "E-mail", "Telegram"):
+        return {"error": "Canal inválido."}, 400
+    if queue not in ("Fila geral", "Financeiro", "Entregas", "Trocas") or priority not in ("Baixa", "Média", "Alta", "Urgente"):
+        return {"error": "Fila ou prioridade inválida."}, 400
+    clean_keywords = list(dict.fromkeys(keyword.strip().lower() for keyword in keywords))
+    with database_connection() as database:
+        cursor = database.execute(
+            "INSERT INTO routing_rules (name, keywords, channel, queue, priority) VALUES (?, ?, ?, ?, ?)",
+            (name, json.dumps(clean_keywords), channel, queue, priority),
+        )
+        created = database.execute("SELECT * FROM routing_rules WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return jsonify(routing_payload(created)), 201
+
+
+@app.patch("/api/routing/<int:rule_id>")
+def update_routing_rule(rule_id):
+    active = (request.json or {}).get("active")
+    if not isinstance(active, bool):
+        return {"error": "A situação da rota precisa ser verdadeira ou falsa."}, 400
+    with database_connection() as database:
+        cursor = database.execute("UPDATE routing_rules SET active = ? WHERE id = ?", (int(active), rule_id))
+        if cursor.rowcount == 0:
+            return {"error": "Rota não encontrada."}, 404
+    return {"id": rule_id, "active": active}
+
+
+@app.post("/api/routing/simulate")
+def simulate_routing():
+    data = request.json or {}
+    message = data.get("message", "").strip()
+    channel = data.get("channel")
+    if not message or channel not in ("WhatsApp", "E-mail", "Telegram"):
+        return {"error": "Envie uma mensagem e um canal válidos."}, 400
+    normalized = message.casefold()
+    with database_connection() as database:
+        rows = database.execute("SELECT * FROM routing_rules WHERE active = 1 ORDER BY id").fetchall()
+        for row in rows:
+            keywords = json.loads(row["keywords"])
+            if row["channel"] in ("Todos os canais", channel) and any(keyword.casefold() in normalized for keyword in keywords):
+                database.execute("UPDATE routing_rules SET matches_today = matches_today + 1 WHERE id = ?", (row["id"],))
+                return {"ruleId": row["id"], "rule": row["name"], "queue": row["queue"], "priority": row["priority"], "matched": True}
+    return {"ruleId": None, "rule": "Regra padrão", "queue": "Fila geral", "priority": "Média", "matched": False}
 
 
 @app.get("/api/integrations")
