@@ -2,6 +2,12 @@
 
 Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 
+## Status do projeto
+
+**Versão 1.0 — protótipo funcional finalizado.**
+
+O painel, a API local, o banco SQLite e o fluxo automatizado estão conectados. Para uso comercial, ainda é necessário contratar ou configurar as APIs oficiais dos canais e um provedor de IA.
+
 ## O que já funciona
 
 - painel responsivo com indicadores;
@@ -60,6 +66,17 @@ python app.py
 ```
 
 A API ficará em `http://127.0.0.1:5000`.
+
+## Rodar os testes automáticos
+
+Com o ambiente Python ativado:
+
+```bash
+cd backend
+python -m unittest test_app.py -v
+```
+
+Os testes conferem cobrança urgente, acompanhamento de entrega e validação de mensagem vazia.
 
 ## Próxima etapa para produção
 
