@@ -56,6 +56,37 @@ class ServiceJourneyTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json["error"], "Nome e mensagem são obrigatórios.")
 
+    def test_incoming_charge_creates_conversation_and_ticket(self):
+        with service.database_connection() as database:
+            conversations_before = database.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+            tickets_before = database.execute("SELECT COUNT(*) FROM tickets").fetchone()[0]
+
+        response = self.client.post("/api/incoming", json={
+            "name": "Rafael Lima",
+            "channel": "email",
+            "message": "Não reconheço esta cobrança no cartão",
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json["status"], "urgente")
+        self.assertEqual(response.json["routing"]["queue"], "Financeiro")
+        self.assertEqual(response.json["ticket"]["priority"], "Urgente")
+        with service.database_connection() as database:
+            self.assertEqual(database.execute("SELECT COUNT(*) FROM conversations").fetchone()[0], conversations_before + 1)
+            self.assertEqual(database.execute("SELECT COUNT(*) FROM tickets").fetchone()[0], tickets_before + 1)
+
+    def test_incoming_delivery_does_not_create_ticket(self):
+        response = self.client.post("/api/incoming", json={
+            "name": "Lucas Mendes",
+            "channel": "whatsapp",
+            "message": "Quero acompanhar meu pedido #4821",
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json["status"], "ia")
+        self.assertEqual(response.json["routing"]["queue"], "Entregas")
+        self.assertIsNone(response.json["ticket"])
+
 
 if __name__ == "__main__":
     unittest.main()

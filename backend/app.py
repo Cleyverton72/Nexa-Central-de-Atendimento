@@ -1226,30 +1226,61 @@ def receive_incoming():
     if channel not in ("whatsapp", "email", "telegram"):
         return {"error": "Canal inválido."}, 400
     result = classify_message(text)
+    channel_names = {"whatsapp": "WhatsApp", "email": "E-mail", "telegram": "Telegram"}
+    routing = {"rule": "Regra padrão", "queue": "Fila geral", "priority": "Média", "matched": False}
+    needs_human = result["status"] == "urgente" or result["confidence"] < 75
+    conversation_status = result["status"] if result["status"] == "urgente" else ("humano" if needs_human else "ia")
     current_time = datetime.now().strftime("%H:%M")
     messages = [
         {"from": "customer", "text": text, "time": current_time},
         {"from": "ai", "text": result["reply"], "time": current_time},
     ]
     with database_connection() as database:
+        normalized = text.casefold()
+        rules = database.execute("SELECT * FROM routing_rules WHERE active = 1 ORDER BY id").fetchall()
+        for row in rules:
+            keywords = json.loads(row["keywords"])
+            if row["channel"] in ("Todos os canais", channel_names[channel]) and any(keyword.casefold() in normalized for keyword in keywords):
+                routing = {"rule": row["name"], "queue": row["queue"], "priority": row["priority"], "matched": True}
+                database.execute("UPDATE routing_rules SET matches_today = matches_today + 1 WHERE id = ?", (row["id"],))
+                break
         cursor = database.execute(
             "INSERT INTO conversations (name, channel, preview, status, messages) VALUES (?, ?, ?, ?, ?)",
-            (name, channel, text, result["status"], json.dumps(messages)),
+            (name, channel, text, conversation_status, json.dumps(messages)),
         )
+        conversation_id = cursor.lastrowid
+        ticket = None
+        if needs_human:
+            title = f"{result['topic']} — {name}"
+            ticket_cursor = database.execute(
+                "INSERT INTO tickets (conversation_id, title, priority, assignee, status, created_at) VALUES (?, ?, ?, ?, 'aberto', ?)",
+                (conversation_id, title, routing["priority"], routing["queue"], datetime.now().isoformat()),
+            )
+            ticket = {
+                "id": ticket_cursor.lastrowid,
+                "title": title,
+                "customer": name,
+                "priority": routing["priority"],
+                "assignee": routing["queue"],
+                "status": "aberto",
+                "created": "Agora",
+            }
     return {
-        "id": cursor.lastrowid,
+        "id": conversation_id,
         "name": name,
         "initials": "".join(part[0] for part in name.split()[:2]).upper(),
         "channel": channel,
         "time": "Agora",
         "preview": text,
         "unread": 1,
-        "status": result["status"],
+        "status": conversation_status,
         "mood": result["mood"],
         "email": "novo.cliente@email.com",
         "phone": "+55 11 90000-0000",
         "orders": 0,
         "messages": messages,
+        "routing": routing,
+        "ticket": ticket,
     }, 201
 
 

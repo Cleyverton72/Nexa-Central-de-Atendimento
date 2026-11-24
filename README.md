@@ -37,6 +37,7 @@ O painel, a API local, o banco SQLite e o fluxo automatizado estão conectados. 
 - auditoria com pesquisa, filtros, detalhes e exportação CSV;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;
+- recebimento integrado que roteia o caso e cria ticket automaticamente quando uma pessoa é necessária;
 - simulador multicanal com fluxo completo: IA, roteamento, triagem, ticket e transferência humana;
 - monitor de eventos dos canais com filtros e reprocessamento de falhas;
 - fila de treinamento da IA para aprovar ou corrigir respostas reais;

@@ -882,7 +882,14 @@ function App() {
     const fallback = () => {
       const result = classifyIncoming(draft.message);
       const id = Math.max(...conversations.map(item => item.id), 0) + 1;
-      return { id, name: draft.name, initials: draft.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase(), channel: draft.channel, time: "Agora", preview: draft.message, unread: 1, status: result.status, mood: result.mood, email: "novo.cliente@email.com", phone: "+55 11 90000-0000", orders: 0, messages: [{ from: "customer", text: draft.message, time: time() }, { from: "ai", text: result.reply, time: time() }] };
+      const normalized = draft.message.toLocaleLowerCase("pt-BR");
+      const channelName = channelMeta[draft.channel].label;
+      const rule = seedRoutingRules.find(item => item.active && (item.channel === "Todos os canais" || item.channel === channelName) && item.keywords.some(keyword => normalized.includes(keyword)));
+      const routing = rule ? { rule: rule.name, queue: rule.queue, priority: rule.priority, matched: true } : { rule: "Regra padrão", queue: "Fila geral", priority: "Média", matched: false };
+      const needsHuman = result.status === "urgente" || result.confidence < 75;
+      const status = result.status === "urgente" ? "urgente" : needsHuman ? "humano" : "ia";
+      const ticket = needsHuman ? { id: Math.max(...tickets.map(item => item.id), 1000) + 1, title: `${result.topic} — ${draft.name}`, customer: draft.name, priority: routing.priority, assignee: routing.queue, status: "aberto", created: "Agora" } : null;
+      return { id, name: draft.name, initials: draft.name.split(" ").slice(0, 2).map(part => part[0]).join("").toUpperCase(), channel: draft.channel, time: "Agora", preview: draft.message, unread: 1, status, mood: result.mood, email: "novo.cliente@email.com", phone: "+55 11 90000-0000", orders: 0, messages: [{ from: "customer", text: draft.message, time: time() }, { from: "ai", text: result.reply, time: time() }], routing, ticket };
     };
     let incoming;
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
@@ -892,11 +899,14 @@ function App() {
         incoming = await response.json();
       } catch { incoming = fallback(); }
     } else { incoming = fallback(); }
-    setConversations(items => [incoming, ...items]);
-    setSelectedId(incoming.id);
+    const { ticket: automaticTicket, routing, ...conversation } = incoming;
+    setConversations(items => [conversation, ...items]);
+    if (automaticTicket) setTickets(items => [automaticTicket, ...items]);
+    if (conversation.status === "urgente" || conversation.status === "humano") setTransferred(ids => [...ids, conversation.id]);
+    setSelectedId(conversation.id);
     setIncomingOpen(false);
     setMobileChat(true);
-    setToast(incoming.status === "urgente" ? "Caso delicado enviado para a fila humana." : "A IA classificou e respondeu à nova mensagem.");
+    setToast(automaticTicket ? `Ticket #${automaticTicket.id} criado e enviado para ${routing.queue}.` : "A IA classificou e respondeu à nova mensagem.");
   };
   const viewTitle = activeView === "dashboard" ? "Visão geral" : activeView === "tickets" ? "Gestão de tickets" : activeView === "customers" ? "Clientes" : activeView === "knowledge" ? "Base de conhecimento" : activeView === "quick-replies" ? "Respostas rápidas" : activeView === "ai-test" ? "Teste da IA" : activeView === "ai-training" ? "Treinamento da IA" : activeView === "channel-simulator" ? "Simulador multicanal" : activeView === "channel-events" ? "Eventos dos canais" : activeView === "automations" ? "Automações" : activeView === "routing" ? "Roteamento" : activeView === "triage" ? "Triagem" : activeView === "integrations" ? "Integrações" : activeView === "team" ? "Equipe" : activeView === "shifts" ? "Escalas" : activeView === "permissions" ? "Permissões" : activeView === "queues" ? "Filas humanas" : activeView === "capacity" ? "Calculadora de fila" : activeView === "reviews" ? "Avaliações" : activeView === "audit" ? "Auditoria" : activeView === "reports" ? "Relatórios" : activeView === "settings" ? "Configurações" : "Central de atendimento";
   const viewDescription = activeView === "dashboard" ? "Acompanhe tudo o que está acontecendo na sua operação." : activeView === "tickets" ? "Organize prioridades e acompanhe a solução dos chamados." : activeView === "customers" ? "Conheça o histórico e o perfil de cada cliente." : activeView === "knowledge" ? "Organize as informações usadas nas respostas da IA." : activeView === "quick-replies" ? "Crie modelos de mensagem para responder com mais agilidade." : activeView === "ai-test" ? "Experimente mensagens e acompanhe as decisões do agente." : activeView === "ai-training" ? "Revise respostas e ensine a IA com exemplos reais." : activeView === "channel-simulator" ? "Teste a entrada, classificação e rota de cada canal." : activeView === "channel-events" ? "Monitore entregas, processamentos e falhas dos canais." : activeView === "automations" ? "Crie regras para a central agir no momento certo." : activeView === "routing" ? "Envie cada assunto para a fila e prioridade corretas." : activeView === "triage" ? "Defina o que a IA coleta antes da transferência humana." : activeView === "integrations" ? "Conecte WhatsApp, e-mail e Telegram à central." : activeView === "team" ? "Acompanhe disponibilidade e desempenho dos atendentes." : activeView === "shifts" ? "Organize dias, horários e pausas da equipe humana." : activeView === "permissions" ? "Controle o que cada função pode acessar e alterar." : activeView === "queues" ? "Acompanhe espera, capacidade e prazos da equipe humana." : activeView === "capacity" ? "Calcule a espera e planeje a capacidade da equipe." : activeView === "reviews" ? "Leia os comentários e acompanhe a satisfação dos clientes." : activeView === "audit" ? "Consulte as ações realizadas pela IA, equipe e sistema." : activeView === "reports" ? "Acompanhe resultados e encontre oportunidades de melhoria." : activeView === "settings" ? "Controle canais, automações e horários da sua operação." : "Acompanhe e gerencie todos os canais em um só lugar.";
