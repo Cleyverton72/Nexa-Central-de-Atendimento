@@ -187,15 +187,15 @@ const statusLabel = {
 function classifyIncoming(text) {
   const message = text.toLowerCase();
   if (["cobrança", "cartão", "fraude", "estorno", "defeito"].some(word => message.includes(word))) {
-    return { status: "urgente", mood: "Preocupado", topic: "Caso delicado", reply: "Entendi. Para cuidar deste caso com atenção, já encaminhei a conversa para uma pessoa do nosso time." };
+    return { status: "urgente", mood: "Preocupado", topic: "Caso delicado", confidence: 98, reply: "Entendi. Para cuidar deste caso com atenção, já encaminhei a conversa para uma pessoa do nosso time." };
   }
   if (["pedido", "entrega", "rastrear"].some(word => message.includes(word))) {
-    return { status: "ia", mood: "Neutro", topic: "Entrega", reply: "Encontrei sua solicitação. Vou consultar o andamento do pedido e mostrar a atualização por aqui." };
+    return { status: "ia", mood: "Neutro", topic: "Entrega", confidence: 92, reply: "Encontrei sua solicitação. Vou consultar o andamento do pedido e mostrar a atualização por aqui." };
   }
   if (["plano", "assinatura", "mensalidade"].some(word => message.includes(word))) {
-    return { status: "ia", mood: "Neutro", topic: "Plano", reply: "Posso ajudar com seu plano. A alteração pode ser feita na área de configurações da conta." };
+    return { status: "ia", mood: "Neutro", topic: "Plano", confidence: 94, reply: "Posso ajudar com seu plano. A alteração pode ser feita na área de configurações da conta." };
   }
-  return { status: "ia", mood: "Neutro", topic: "Dúvida geral", reply: "Recebi sua mensagem. Vou buscar a informação correta para ajudar você." };
+  return { status: "ia", mood: "Neutro", topic: "Dúvida geral", confidence: 68, reply: "Recebi sua mensagem. Vou buscar a informação correta para ajudar você." };
 }
 
 function ChannelBadge({ channel, compact = false }) {
@@ -477,20 +477,73 @@ function AiTrainingPage() {
 
 function ChannelSimulatorPage({ conversations, onReceive }) {
   const [draft, setDraft] = useState({ name: "Lucas Mendes", channel: "whatsapp", message: "Quero acompanhar meu pedido #4821" });
-  const analysis = draft.message.trim() ? classifyIncoming(draft.message) : null;
+  const [journey, setJourney] = useState(null);
+  const [testing, setTesting] = useState(false);
   const examples = {
     whatsapp: "Quero acompanhar meu pedido #4821",
     email: "Não reconheço esta cobrança no meu cartão",
     telegram: "Como posso alterar o plano da minha conta?"
   };
   const channelCounts = ["whatsapp", "email", "telegram"].map(channel => ({ channel, total: conversations.filter(item => item.channel === channel).length }));
-  const chooseChannel = channel => setDraft(current => ({ ...current, channel, message: examples[channel] }));
+  const chooseChannel = channel => {
+    setDraft(current => ({ ...current, channel, message: examples[channel] }));
+    setJourney(null);
+  };
+  const localJourney = () => {
+    const classification = classifyIncoming(draft.message);
+    const channelName = channelMeta[draft.channel].label;
+    const normalized = draft.message.toLocaleLowerCase("pt-BR");
+    const rule = seedRoutingRules.find(item => item.active && (item.channel === "Todos os canais" || item.channel === channelName) && item.keywords.some(keyword => normalized.includes(keyword)));
+    const routing = rule ? { rule: rule.name, queue: rule.queue, priority: rule.priority, matched: true } : { rule: "Regra padrão", queue: "Fila geral", priority: "Média", matched: false };
+    const needsHuman = classification.status === "urgente" || classification.confidence < 75;
+    const fields = needsHuman ? seedTriageFields.filter(field => field.active) : [];
+    return { channel: draft.channel, classification, routing, triage: { required: needsHuman, fieldCount: fields.length, fields }, ticket: { created: needsHuman, priority: needsHuman ? routing.priority : null, title: needsHuman ? `${classification.topic} — ${draft.name}` : null }, outcome: { type: needsHuman ? "human" : "automatic", label: needsHuman ? `Transferir para ${routing.queue}` : "Responder automaticamente com IA" }, reply: classification.reply };
+  };
   const submit = async event => {
     event.preventDefault();
     if (!draft.name.trim() || !draft.message.trim()) return;
-    await onReceive({ ...draft, name: draft.name.trim(), message: draft.message.trim() });
+    setTesting(true);
+    try {
+      const response = await fetch("http://127.0.0.1:5000/api/journey/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...draft, name: draft.name.trim(), message: draft.message.trim() }) });
+      if (!response.ok) throw new Error("API unavailable");
+      setJourney(await response.json());
+    } catch {
+      setJourney(localJourney());
+    } finally {
+      setTesting(false);
+    }
   };
-  return <section className="channel-simulator-page"><div className="channel-simulator-hero"><div><span><MessageCircle size={23} /></span><div><h2>Uma entrada para todos os canais</h2><p>Envie uma mensagem de teste e acompanhe o caminho escolhido pela IA.</p></div></div><span><i />WhatsApp, e-mail e Telegram</span></div><div className="channel-simulator-stats">{channelCounts.map(item => { const meta = channelMeta[item.channel]; const Icon = meta.icon; return <article key={item.channel}><span className={`setting-channel ${meta.className}`}><Icon size={19} /></span><div><b>{meta.label}</b><small>{item.total} conversas na central</small></div></article>; })}</div><div className="channel-simulator-grid"><form className="channel-message-card" onSubmit={submit}><header><div><h3>Mensagem recebida</h3><p>Escolha a origem e escreva como se fosse o cliente.</p></div></header><div className="channel-picker">{Object.entries(channelMeta).map(([key, meta]) => { const Icon = meta.icon; return <button type="button" key={key} className={`${meta.className} ${draft.channel === key ? "active" : ""}`} onClick={() => chooseChannel(key)}><Icon size={18} />{meta.label}</button>; })}</div><label>Nome do cliente<input value={draft.name} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} placeholder="Ex.: Lucas Mendes" /></label><label>Mensagem<textarea value={draft.message} onChange={event => setDraft(current => ({ ...current, message: event.target.value }))} placeholder="Escreva a dúvida do cliente" /></label><button className="channel-send-button" disabled={!draft.name.trim() || !draft.message.trim()}><Send size={18} />Enviar para a central</button></form><article className="channel-route-card"><header><div><h3>Caminho da automação</h3><p>A decisão muda conforme o conteúdo recebido.</p></div>{analysis && <span className={analysis.status === "urgente" ? "human" : "auto"}>{analysis.status === "urgente" ? "Fila humana" : "Resposta da IA"}</span>}</header>{analysis ? <div className="channel-route-flow"><div><span className={`setting-channel ${channelMeta[draft.channel].className}`}>{React.createElement(channelMeta[draft.channel].icon, { size: 18 })}</span><p><small>1. CANAL</small><b>{channelMeta[draft.channel].label} recebeu a mensagem</b></p><Check size={18} /></div><i /><div><span className="setting-channel ai"><Bot size={18} /></span><p><small>2. INTELIGÊNCIA ARTIFICIAL</small><b>Assunto: {analysis.topic}</b></p><Check size={18} /></div><i /><div><span className={`setting-channel ${analysis.status === "urgente" ? "human" : "ai"}`}>{analysis.status === "urgente" ? <Headphones size={18} /> : <Sparkles size={18} />}</span><p><small>3. AÇÃO</small><b>{analysis.status === "urgente" ? "Transferir para uma pessoa" : "Responder automaticamente"}</b></p><Check size={18} /></div><div className="channel-reply-preview"><span><Sparkles size={16} />Resposta preparada</span><p>{analysis.reply}</p></div></div> : <div className="channel-route-empty"><Bot size={38} /><b>Aguardando uma mensagem</b><p>O caminho aparecerá quando você escrever ao lado.</p></div>}</article></div></section>;
+  const createTestConversation = async () => onReceive({ ...draft, name: draft.name.trim(), message: draft.message.trim() });
+  const updateDraft = field => event => {
+    setDraft(current => ({ ...current, [field]: event.target.value }));
+    setJourney(null);
+  };
+  return <section className="channel-simulator-page">
+    <div className="channel-simulator-hero"><div><span><MessageCircle size={23} /></span><div><h2>Do primeiro contato até a solução</h2><p>Teste mensagem, IA, rota, triagem, ticket e transferência em um único fluxo.</p></div></div><span><i />Fluxo completo conectado</span></div>
+    <div className="channel-simulator-stats">{channelCounts.map(item => { const meta = channelMeta[item.channel]; const Icon = meta.icon; return <article key={item.channel}><span className={`setting-channel ${meta.className}`}><Icon size={19} /></span><div><b>{meta.label}</b><small>{item.total} conversas na central</small></div></article>; })}</div>
+    <div className="channel-simulator-grid">
+      <form className="channel-message-card" onSubmit={submit}>
+        <header><div><h3>Mensagem recebida</h3><p>Escolha a origem e escreva como se fosse o cliente.</p></div></header>
+        <div className="channel-picker">{Object.entries(channelMeta).map(([key, meta]) => { const Icon = meta.icon; return <button type="button" key={key} className={`${meta.className} ${draft.channel === key ? "active" : ""}`} onClick={() => chooseChannel(key)}><Icon size={18} />{meta.label}</button>; })}</div>
+        <label>Nome do cliente<input value={draft.name} onChange={updateDraft("name")} placeholder="Ex.: Lucas Mendes" /></label>
+        <label>Mensagem<textarea value={draft.message} onChange={updateDraft("message")} placeholder="Escreva a dúvida do cliente" /></label>
+        <button className="channel-send-button" disabled={testing || !draft.name.trim() || !draft.message.trim()}><Zap size={18} />{testing ? "Analisando o fluxo..." : "Testar fluxo completo"}</button>
+      </form>
+      <article className="channel-route-card">
+        <header><div><h3>Caminho da automação</h3><p>Veja como cada parte trabalha com a próxima.</p></div>{journey && <span className={journey.outcome.type === "human" ? "human" : "auto"}>{journey.outcome.type === "human" ? "Fila humana" : "Resposta da IA"}</span>}</header>
+        {journey ? <div className="channel-route-flow">
+          <div><span className={`setting-channel ${channelMeta[draft.channel].className}`}>{React.createElement(channelMeta[draft.channel].icon, { size: 18 })}</span><p><small>1. CANAL</small><b>{channelMeta[draft.channel].label} recebeu a mensagem</b></p><Check size={18} /></div><i />
+          <div><span className="setting-channel ai"><Bot size={18} /></span><p><small>2. INTELIGÊNCIA ARTIFICIAL</small><b>{journey.classification.topic} · {journey.classification.confidence}% de confiança</b></p><Check size={18} /></div><i />
+          <div><span className="setting-channel telegram"><GitBranch size={18} /></span><p><small>3. ROTEAMENTO</small><b>{journey.routing.queue} · prioridade {journey.routing.priority}</b></p><Check size={18} /></div><i />
+          <div><span className="setting-channel email"><ClipboardList size={18} /></span><p><small>4. TRIAGEM</small><b>{journey.triage.required ? `${journey.triage.fieldCount} perguntas antes da transferência` : "Não necessária neste atendimento"}</b></p><Check size={18} /></div><i />
+          <div><span className="setting-channel whatsapp"><TicketCheck size={18} /></span><p><small>5. TICKET</small><b>{journey.ticket.created ? `Criar ticket ${journey.ticket.priority.toLowerCase()}` : "Não criar ticket agora"}</b></p><Check size={18} /></div><i />
+          <div><span className={`setting-channel ${journey.outcome.type === "human" ? "human" : "ai"}`}>{journey.outcome.type === "human" ? <Headphones size={18} /> : <Sparkles size={18} />}</span><p><small>6. RESULTADO</small><b>{journey.outcome.label}</b></p><Check size={18} /></div>
+          <div className="channel-reply-preview"><span><Sparkles size={16} />Resposta preparada</span><p>{journey.reply}</p></div>
+          <button type="button" className="journey-create-button" onClick={createTestConversation}><Send size={17} />Criar atendimento de teste</button>
+        </div> : <div className="channel-route-empty"><Bot size={38} /><b>Aguardando o teste</b><p>Preencha a mensagem e clique em “Testar fluxo completo”.</p></div>}
+      </article>
+    </div>
+  </section>;
 }
 
 function ChannelEventsPage() {

@@ -458,6 +458,50 @@ def simulate_ai_response():
     }
 
 
+@app.post("/api/journey/simulate")
+def simulate_service_journey():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    message = data.get("message", "").strip()
+    channel = data.get("channel", "whatsapp")
+    channel_names = {"whatsapp": "WhatsApp", "email": "E-mail", "telegram": "Telegram"}
+    if not name or not message:
+        return {"error": "Nome e mensagem são obrigatórios."}, 400
+    if channel not in channel_names:
+        return {"error": "Canal inválido."}, 400
+
+    classification = classify_message(message)
+    normalized = message.casefold()
+    routing = {"ruleId": None, "rule": "Regra padrão", "queue": "Fila geral", "priority": "Média", "matched": False}
+    with database_connection() as database:
+        rules = database.execute("SELECT * FROM routing_rules WHERE active = 1 ORDER BY id").fetchall()
+        for row in rules:
+            keywords = json.loads(row["keywords"])
+            if row["channel"] in ("Todos os canais", channel_names[channel]) and any(keyword.casefold() in normalized for keyword in keywords):
+                routing = {"ruleId": row["id"], "rule": row["name"], "queue": row["queue"], "priority": row["priority"], "matched": True}
+                break
+        triage_rows = database.execute("SELECT * FROM triage_fields WHERE active = 1 ORDER BY position, id").fetchall()
+
+    needs_human = classification["status"] == "urgente" or classification["confidence"] < 75
+    triage_fields = [triage_field_payload(row) for row in triage_rows] if needs_human else []
+    return {
+        "channel": channel,
+        "classification": classification,
+        "routing": routing,
+        "triage": {"required": needs_human, "fieldCount": len(triage_fields), "fields": triage_fields},
+        "ticket": {
+            "created": needs_human,
+            "priority": routing["priority"] if needs_human else None,
+            "title": f"{classification['topic']} — {name}" if needs_human else None,
+        },
+        "outcome": {
+            "type": "human" if needs_human else "automatic",
+            "label": f"Transferir para {routing['queue']}" if needs_human else "Responder automaticamente com IA",
+        },
+        "reply": classification["reply"],
+    }
+
+
 @app.post("/api/capacity/calculate")
 def calculate_queue_capacity():
     data = request.json or {}

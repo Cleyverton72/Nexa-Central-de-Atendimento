@@ -31,7 +31,7 @@ Protótipo de um atendimento automatizado para WhatsApp, e-mail e Telegram.
 - auditoria com pesquisa, filtros, detalhes e exportação CSV;
 - transferência para a fila humana;
 - simulação de novas mensagens recebidas;
-- simulador multicanal com prévia da classificação, rota e resposta da IA;
+- simulador multicanal com fluxo completo: IA, roteamento, triagem, ticket e transferência humana;
 - monitor de eventos dos canais com filtros e reprocessamento de falhas;
 - fila de treinamento da IA para aprovar ou corrigir respostas reais;
 - controle de permissões por função para administradores, supervisores e atendentes;
